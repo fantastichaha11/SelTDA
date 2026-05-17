@@ -25,3 +25,5 @@ env/
 *.swp
 *~
 .DS_Store
+
+datasets

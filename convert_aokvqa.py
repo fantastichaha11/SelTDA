@@ -82,7 +82,7 @@ def point_record_to_coco_image_file(
     record: AOKVQARecord, coco_image_root: Path, split: str
 ) -> None:
     coco_filename = convert_coco_id_to_coco_name(record.image)
-    record.image = f"coco-images/{coco_filename}"
+    record.image = coco_filename
 
 
 def load_split(split: str, aokvqa_root: Path) -> List[AOKVQARecord]:

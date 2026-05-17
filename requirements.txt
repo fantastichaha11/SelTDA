@@ -1,4 +1,10 @@
+omegaconf==2.2.2
+hydra-core==1.2.0
+attrs==22.1.0
+cattrs==22.1.0
+numpy==1.23.1
+# torch torchvision
+opencv-python==4.6.0.66
 timm==0.4.12
-transformers==4.15.0
 fairscale==0.4.4
-pycocoevalcap
+transformers==4.21.3

@@ -15,7 +15,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 import hydra
 from omegaconf import OmegaConf
-import wandb
+# import wandb
 import data
 
 from models.blip import decoder_from_config
@@ -34,7 +34,7 @@ class Trainer:
         self.data_loader = data_loader
         self.optimizer = optimizer
         self.device = device
-        self.wandb_logger = wandb_logger
+        # self.wandb_logger = wandb_logger
         self.print_freq = print_freq
 
     def train_one_epoch(self, epoch):
@@ -75,14 +75,14 @@ class Trainer:
         self.metric_logger.update(loss=loss.item())
         self.metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
 
-        if batch_idx % self.print_freq == 0:
-            if utils.is_main_process() and self.wandb_logger:
-                self.wandb_logger.log(
-                    data={
-                        "loss": loss.item(),
-                        "lr": self.optimizer.param_groups[0]["lr"],
-                    }
-                )
+        # if batch_idx % self.print_freq == 0:
+        #     if utils.is_main_process() and self.wandb_logger:
+        #         self.wandb_logger.log(
+        #             data={
+        #                 "loss": loss.item(),
+        #                 "lr": self.optimizer.param_groups[0]["lr"],
+        #             }
+        #         )
 
 
 @torch.no_grad()
@@ -154,15 +154,15 @@ def main(args, config):
     print("Creating model")
     model = decoder_from_config(config)
 
-    if utils.is_main_process() and config.wandb:
-        print("Is main process, creating W&B logger.")
-        wandb_logger = wandb.init(
-            project="mithril-alice-valley",
-            entity="zakh",
-            config=OmegaConf.to_container(config),
-        )
-    else:
-        wandb_logger = None
+    # if utils.is_main_process() and config.wandb:
+    #     print("Is main process, creating W&B logger.")
+    #     wandb_logger = wandb.init(
+    #         project="mithril-alice-valley",
+    #         entity="zakh",
+    #         config=OmegaConf.to_container(config),
+    #     )
+    # else:
+    #     wandb_logger = None
 
     model = model.to(device)
 
@@ -184,7 +184,7 @@ def main(args, config):
         data_loader=train_loader,
         optimizer=optimizer,
         device=device,
-        wandb_logger=wandb_logger,
+        # wandb_logger=wandb_logger,
         model=model,
     )
 
