@@ -6,7 +6,7 @@ from typing import Tuple
 
 import torch
 from torch.utils.data import Dataset
-from data.utils import pre_question
+from data.utils import join_image_root_path, pre_question
 
 from torchvision.datasets.utils import download_url
 
@@ -82,9 +82,9 @@ class VqgDataset(Dataset):
         ann = self.annotation[index]
 
         if ann["dataset"] == "vqa" or ann["dataset"] == "aokvqa":
-            image_path = os.path.join(self.vqa_root, ann["image"])
+            image_path = join_image_root_path(self.vqa_root, ann["image"])
         elif ann["dataset"] == "vg":
-            image_path = os.path.join(self.vg_root, ann["image"])
+            image_path = join_image_root_path(self.vg_root, ann["image"])
 
         image = Image.open(image_path).convert("RGB")
         image = self.transform(image)
@@ -165,7 +165,7 @@ class AokVqgDataset(Dataset):
 
         ann = self.annotation[index]
 
-        image_path = os.path.join(self.vqa_root, ann["image"])
+        image_path = join_image_root_path(self.vqa_root, ann["image"])
 
         image = Image.open(image_path).convert("RGB")
         image = self.transform(image)

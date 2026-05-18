@@ -1,7 +1,7 @@
-vqa_root: '/mnt/e/SelTDA/datasets/coco2017'
+vqa_root: '/workspace/SelTDA/datasets/coco2017'
 vg_root: null
 train_files: ['train']
-ann_root: '/mnt/e/SelTDA/datasets/aokvqa'
+ann_root: '/workspace/SelTDA/datasets/aokvqa'
 dataset_name: aokvqa
 truncate_train_dataset_to: null
 
@@ -25,8 +25,9 @@ pretrained: 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/mo
 
 # size of vit model; base or large
 vit: 'base'
-batch_size_train: 16 
-batch_size_test: 32 
+# Smaller defaults for ~24GB GPUs; override via --overrides if you have more VRAM.
+batch_size_train: 8
+batch_size_test: 16
 vit_grad_ckpt: False
 vit_ckpt_layer: 0
 init_lr: 2e-5
@@ -43,3 +44,5 @@ max_epoch: 10
 
 torch_home: /net/acadia10b/data/zkhan/torch_home
 wandb: true
+
+save_last_only: false

@@ -241,7 +241,7 @@ def main(args, config):
 
         if args.evaluate:
             break
-        dist.barrier()
+        # dist.barrier()
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

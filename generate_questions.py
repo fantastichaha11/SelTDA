@@ -319,8 +319,11 @@ def main(args, config):
                     all_records.append(attrs.asdict(record))
                     successful_parses += 1
 
-        if len(all_records) >= config.truncate_to_strict:
-            break
+        truncate_limit = config.get("truncate_to_strict", None)
+
+        if truncate_limit is not None:
+            if len(all_records) >= truncate_limit:
+                break
 
         logger.info(
             "Sucessfully parsed %d questions, failed to parse %d questions",
@@ -340,9 +343,12 @@ def main(args, config):
     logger.info("Generated %d questions", len(all_records))
     logger.info("Writing questions to %s", config.output_annotations_name)
     try:
-        with open(
-            Path(config.output_folder) / config.output_annotations_name, "w"
-        ) as f:
+        output_path = Path(config.output_folder) / config.output_annotations_name
+
+        # Create parent directories if needed
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "w") as f:
             json.dump(all_records, f)
     except Exception as e:
         import ipdb

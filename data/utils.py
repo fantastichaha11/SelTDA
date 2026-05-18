@@ -30,6 +30,23 @@ def pre_caption(caption, max_words=50):
     return caption
 
 
+def join_image_root_path(image_root: str, relative_image: str) -> str:
+    """
+    Join a dataset image root with a relative path from annotations.
+
+    Annotation files sometimes repeat the root folder name (e.g.
+    ``coco2017/000000123.jpg``) while ``image_root`` already ends with that
+    directory. Drop one redundant leading component when it matches the
+    basename of ``image_root``.
+    """
+    rel = relative_image.replace("\\", "/").lstrip("/")
+    root_base = os.path.basename(os.path.normpath(image_root))
+    parts = rel.split("/")
+    if len(parts) > 1 and parts[0] == root_base:
+        rel = "/".join(parts[1:])
+    return os.path.normpath(os.path.join(image_root, rel))
+
+
 def pre_question(question, max_ques_words=50):
     question = re.sub(
         r"([.!\"()*#:;~])",

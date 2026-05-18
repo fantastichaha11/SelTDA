@@ -23,7 +23,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-import wandb
+# import wandb
 from omegaconf import OmegaConf
 
 from models.blip_vqa import blip_vqa
@@ -64,14 +64,14 @@ def train(model, data_loader, optimizer, epoch, device, wandb_logger=None):
         metric_logger.update(loss=loss.item())
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
-        if i % print_freq == 0:
-            if utils.is_main_process() and wandb_logger:
-                wandb_logger.log(
-                    data={
-                        "loss": loss.item(),
-                        "lr": optimizer.param_groups[0]["lr"],
-                    }
-                )
+        # if i % print_freq == 0:
+        #     if utils.is_main_process() and wandb_logger:
+        #         wandb_logger.log(
+        #             data={
+        #                 "loss": loss.item(),
+        #                 "lr": optimizer.param_groups[0]["lr"],
+        #             }
+        #         )
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
@@ -165,15 +165,15 @@ def main(args, config):
     random.seed(seed)
     cudnn.benchmark = True
 
-    if utils.is_main_process() and config.wandb:
-        print("Is main process, creating W&B logger.")
-        wandb_logger = wandb.init(
-            project="mithril-alice-valley",
-            entity="zakh",
-            config=OmegaConf.to_container(config),
-        )
-    else:
-        wandb_logger = None
+    # if utils.is_main_process() and config.wandb:
+    #     print("Is main process, creating W&B logger.")
+    #     wandb_logger = wandb.init(
+    #         project="mithril-alice-valley",
+    #         entity="zakh",
+    #         config=OmegaConf.to_container(config),
+    #     )
+    # else:
+    #     wandb_logger = None
 
     #### Dataset ####
     print("Creating vqa datasets")
@@ -237,7 +237,7 @@ def main(args, config):
             )
 
             train_stats = train(
-                model, train_loader, optimizer, epoch, device, wandb_logger=wandb_logger
+                model, train_loader, optimizer, epoch, device
             )
 
         else:
@@ -269,7 +269,7 @@ def main(args, config):
                     os.path.join(args.output_dir, "checkpoint_%02d.pth" % epoch),
                 )
 
-        dist.barrier()
+        # dist.barrier()
 
     vqa_result = evaluation(model_without_ddp, test_loader, device, config)
     result_file = save_result(vqa_result, args.result_dir, "vqa_result")

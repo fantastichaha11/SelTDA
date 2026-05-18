@@ -1,7 +1,7 @@
-vqa_root: '/mnt/e/SelTDA/datasets/coco2017'
+vqa_root: '/workspace/SelTDA/datasets/coco2017'
 vg_root: null
 train_files: ['train']
-ann_root: '/mnt/e/SelTDA/datasets/aokvqa'
+ann_root: '/workspace/SelTDA/datasets/aokvqa'
 dataset_name: aokvqa
 truncate_train_dataset_to: null
 
@@ -48,3 +48,5 @@ max_epoch: 5
 
 torch_home: /net/acadia10a/data/zkhan/torch_home
 wandb: true
+
+save_last_only: false

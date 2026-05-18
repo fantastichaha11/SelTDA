@@ -21,7 +21,7 @@ pip install torch torchvision \
 
 echo "Installing requirements"
 
-pip install -r requirement.txt
+pip install -r requirements.txt
 
 echo "Done!"
 echo "Activate with:"

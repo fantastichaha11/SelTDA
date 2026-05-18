@@ -3,4 +3,4 @@
 python -m torch.distributed.run --master_port=37770 --nproc_per_node=1 train_vqg.py \
     --config=configs/aokvqg.yaml \
     --output_dir=cache/teacher_weights \
-    --overrides batch_size=4
+    --overrides batch_size=16

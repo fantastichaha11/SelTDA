@@ -1,6 +1,6 @@
-image_folder: /net/acadia10a/data/zkhan/coco2017/
+image_folder: '/workspace/SelTDA/datasets/coco2017'
 output_folder: /net/acadia10a/data/zkhan/aokvqa/
-annotations: /net/acadia10a/data/zkhan/aokvqa/train.json
+annotations: '/workspace/SelTDA/datasets/aokvqa/train.json'
 pretrained: /net/acadia10a/data/mithril/blip_aokvqg_no_vqav2/checkpoint_04.pth 
 output_annotations_name: /net/acadia10a/data/zkhan/aokvqa/aokvqa_generated_qa.json
 image_size: 384
@@ -11,7 +11,7 @@ prompt: 'Question:'
 torch_home: /net/acadia10a/data/zkhan/torch_home
 vit: base
 questions_per_image: 2
-multimodal_encoder_decoder_config: /home/mai/zkhan/BLIP/configs/med_config.json
+multimodal_encoder_decoder_config: /workspace/SelTDA/configs/med_config.json
 batch_size: 64
 truncate_to: null
 num_workers: 4
