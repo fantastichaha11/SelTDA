@@ -1,0 +1,287 @@
+| distributed init (rank 0, word 1): env://
+[rank0]:[W519 13:24:21.239361777 ProcessGroupNCCL.cpp:5324] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+Creating vqa datasets
+Creating model
+reshape position embedding from 196 to 900
+load checkpoint from https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_capfilt_large.pth
+Resuming training from checkpoint: cache/self_trained_weights/checkpoint_06.pth
+Resumed successfully. Starting from epoch 7.
+Start training
+Train Epoch: [7]  [   0/4250]  eta: 2:06:46  lr: 0.000004  loss: 6.0580  time: 1.7896  data: 0.4301  max mem: 14972
+Train Epoch: [7]  [  50/4250]  eta: 0:37:44  lr: 0.000004  loss: 6.2478  time: 0.5132  data: 0.0001  max mem: 16072
+Train Epoch: [7]  [ 100/4250]  eta: 0:36:33  lr: 0.000004  loss: 5.5034  time: 0.5189  data: 0.0001  max mem: 16072
+Train Epoch: [7]  [ 150/4250]  eta: 0:35:52  lr: 0.000004  loss: 5.9561  time: 0.5190  data: 0.0001  max mem: 16072
+Train Epoch: [7]  [ 200/4250]  eta: 0:35:20  lr: 0.000004  loss: 6.8909  time: 0.5192  data: 0.0001  max mem: 16129
+Train Epoch: [7]  [ 250/4250]  eta: 0:34:51  lr: 0.000004  loss: 5.8078  time: 0.5213  data: 0.0001  max mem: 16129
+Train Epoch: [7]  [ 300/4250]  eta: 0:34:23  lr: 0.000004  loss: 6.5963  time: 0.5195  data: 0.0001  max mem: 16129
+Train Epoch: [7]  [ 350/4250]  eta: 0:33:56  lr: 0.000004  loss: 5.5362  time: 0.5226  data: 0.0001  max mem: 16136
+Train Epoch: [7]  [ 400/4250]  eta: 0:33:30  lr: 0.000004  loss: 6.0841  time: 0.5223  data: 0.0001  max mem: 16136
+Train Epoch: [7]  [ 450/4250]  eta: 0:33:06  lr: 0.000004  loss: 5.8861  time: 0.5347  data: 0.0001  max mem: 16136
+Train Epoch: [7]  [ 500/4250]  eta: 0:32:39  lr: 0.000004  loss: 5.5137  time: 0.5226  data: 0.0001  max mem: 16136
+Train Epoch: [7]  [ 550/4250]  eta: 0:32:13  lr: 0.000004  loss: 5.6131  time: 0.5239  data: 0.0001  max mem: 16136
+Train Epoch: [7]  [ 600/4250]  eta: 0:31:48  lr: 0.000004  loss: 5.8436  time: 0.5252  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [ 650/4250]  eta: 0:31:21  lr: 0.000004  loss: 5.8193  time: 0.5222  data: 0.0002  max mem: 16271
+Train Epoch: [7]  [ 700/4250]  eta: 0:30:55  lr: 0.000004  loss: 5.1042  time: 0.5212  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [ 750/4250]  eta: 0:30:29  lr: 0.000004  loss: 5.2411  time: 0.5259  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [ 800/4250]  eta: 0:30:03  lr: 0.000004  loss: 5.5247  time: 0.5251  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [ 850/4250]  eta: 0:29:37  lr: 0.000004  loss: 6.5986  time: 0.5226  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [ 900/4250]  eta: 0:29:11  lr: 0.000004  loss: 6.1165  time: 0.5239  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [ 950/4250]  eta: 0:28:45  lr: 0.000004  loss: 6.9204  time: 0.5223  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1000/4250]  eta: 0:28:19  lr: 0.000004  loss: 5.6716  time: 0.5226  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1050/4250]  eta: 0:27:53  lr: 0.000004  loss: 5.7755  time: 0.5236  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1100/4250]  eta: 0:27:27  lr: 0.000004  loss: 5.8996  time: 0.5237  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1150/4250]  eta: 0:27:01  lr: 0.000004  loss: 5.7875  time: 0.5238  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1200/4250]  eta: 0:26:35  lr: 0.000004  loss: 5.9431  time: 0.5242  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1250/4250]  eta: 0:26:08  lr: 0.000004  loss: 6.4830  time: 0.5235  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1300/4250]  eta: 0:25:42  lr: 0.000004  loss: 6.1586  time: 0.5218  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1350/4250]  eta: 0:25:16  lr: 0.000004  loss: 5.5253  time: 0.5237  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1400/4250]  eta: 0:24:50  lr: 0.000004  loss: 5.4560  time: 0.5237  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1450/4250]  eta: 0:24:24  lr: 0.000004  loss: 6.0220  time: 0.5219  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1500/4250]  eta: 0:23:57  lr: 0.000004  loss: 6.7196  time: 0.5216  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1550/4250]  eta: 0:23:31  lr: 0.000004  loss: 6.1984  time: 0.5213  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1600/4250]  eta: 0:23:05  lr: 0.000004  loss: 5.5873  time: 0.5224  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1650/4250]  eta: 0:22:39  lr: 0.000004  loss: 4.6383  time: 0.5239  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1700/4250]  eta: 0:22:13  lr: 0.000004  loss: 5.2150  time: 0.5210  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1750/4250]  eta: 0:21:46  lr: 0.000004  loss: 6.5279  time: 0.5222  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1800/4250]  eta: 0:21:20  lr: 0.000004  loss: 6.2947  time: 0.5224  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1850/4250]  eta: 0:20:54  lr: 0.000004  loss: 5.3085  time: 0.5221  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1900/4250]  eta: 0:20:28  lr: 0.000004  loss: 5.4958  time: 0.5211  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [1950/4250]  eta: 0:20:02  lr: 0.000004  loss: 5.5465  time: 0.5208  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2000/4250]  eta: 0:19:36  lr: 0.000004  loss: 5.5596  time: 0.5231  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2050/4250]  eta: 0:19:09  lr: 0.000004  loss: 6.2927  time: 0.5223  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2100/4250]  eta: 0:18:43  lr: 0.000004  loss: 4.7804  time: 0.5200  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2150/4250]  eta: 0:18:17  lr: 0.000004  loss: 5.8687  time: 0.5197  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2200/4250]  eta: 0:17:51  lr: 0.000004  loss: 6.2939  time: 0.5206  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2250/4250]  eta: 0:17:25  lr: 0.000004  loss: 4.8054  time: 0.5261  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2300/4250]  eta: 0:16:59  lr: 0.000004  loss: 6.5069  time: 0.5223  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2350/4250]  eta: 0:16:32  lr: 0.000004  loss: 5.7955  time: 0.5204  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2400/4250]  eta: 0:16:06  lr: 0.000004  loss: 5.6791  time: 0.5246  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2450/4250]  eta: 0:15:40  lr: 0.000004  loss: 5.9032  time: 0.5236  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2500/4250]  eta: 0:15:14  lr: 0.000004  loss: 5.4867  time: 0.5236  data: 0.0002  max mem: 16271
+Train Epoch: [7]  [2550/4250]  eta: 0:14:48  lr: 0.000004  loss: 6.1334  time: 0.5206  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2600/4250]  eta: 0:14:22  lr: 0.000004  loss: 6.4232  time: 0.5240  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2650/4250]  eta: 0:13:56  lr: 0.000004  loss: 6.9445  time: 0.5208  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2700/4250]  eta: 0:13:30  lr: 0.000004  loss: 5.4639  time: 0.5237  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2750/4250]  eta: 0:13:03  lr: 0.000004  loss: 5.9215  time: 0.5209  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2800/4250]  eta: 0:12:37  lr: 0.000004  loss: 5.1684  time: 0.5203  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2850/4250]  eta: 0:12:11  lr: 0.000004  loss: 6.0234  time: 0.5244  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2900/4250]  eta: 0:11:45  lr: 0.000004  loss: 6.4227  time: 0.5210  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [2950/4250]  eta: 0:11:19  lr: 0.000004  loss: 5.2583  time: 0.5213  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3000/4250]  eta: 0:10:53  lr: 0.000004  loss: 6.8744  time: 0.5233  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3050/4250]  eta: 0:10:27  lr: 0.000004  loss: 6.0784  time: 0.5224  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3100/4250]  eta: 0:10:00  lr: 0.000004  loss: 6.2028  time: 0.5218  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3150/4250]  eta: 0:09:34  lr: 0.000004  loss: 6.2464  time: 0.5239  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3200/4250]  eta: 0:09:08  lr: 0.000004  loss: 4.9845  time: 0.5217  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3250/4250]  eta: 0:08:42  lr: 0.000004  loss: 6.3596  time: 0.5208  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3300/4250]  eta: 0:08:16  lr: 0.000004  loss: 6.4551  time: 0.5221  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3350/4250]  eta: 0:07:50  lr: 0.000004  loss: 5.8085  time: 0.5236  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3400/4250]  eta: 0:07:24  lr: 0.000004  loss: 4.9326  time: 0.5225  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3450/4250]  eta: 0:06:58  lr: 0.000004  loss: 5.7169  time: 0.5228  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3500/4250]  eta: 0:06:31  lr: 0.000004  loss: 4.9023  time: 0.5222  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3550/4250]  eta: 0:06:05  lr: 0.000004  loss: 4.8671  time: 0.5222  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3600/4250]  eta: 0:05:39  lr: 0.000004  loss: 6.7482  time: 0.5211  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3650/4250]  eta: 0:05:13  lr: 0.000004  loss: 5.7488  time: 0.5234  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3700/4250]  eta: 0:04:47  lr: 0.000004  loss: 4.6096  time: 0.5201  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3750/4250]  eta: 0:04:21  lr: 0.000004  loss: 5.5983  time: 0.5203  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3800/4250]  eta: 0:03:55  lr: 0.000004  loss: 5.9344  time: 0.5241  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3850/4250]  eta: 0:03:28  lr: 0.000004  loss: 6.7695  time: 0.5240  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3900/4250]  eta: 0:03:02  lr: 0.000004  loss: 6.8591  time: 0.5211  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [3950/4250]  eta: 0:02:36  lr: 0.000004  loss: 5.8506  time: 0.5196  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [4000/4250]  eta: 0:02:10  lr: 0.000004  loss: 6.4882  time: 0.5207  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [4050/4250]  eta: 0:01:44  lr: 0.000004  loss: 5.7579  time: 0.5201  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [4100/4250]  eta: 0:01:18  lr: 0.000004  loss: 5.7922  time: 0.5192  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [4150/4250]  eta: 0:00:52  lr: 0.000004  loss: 7.4331  time: 0.5216  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [4200/4250]  eta: 0:00:26  lr: 0.000004  loss: 6.3123  time: 0.5238  data: 0.0001  max mem: 16271
+Train Epoch: [7]  [4249/4250]  eta: 0:00:00  lr: 0.000004  loss: 6.2597  time: 0.5203  data: 0.0001  max mem: 16271
+Train Epoch: [7] Total time: 0:36:59 (0.5223 s / it)
+Averaged stats: lr: 0.0000  loss: 5.8821
+Train Epoch: [8]  [   0/4250]  eta: 1:07:07  lr: 0.000002  loss: 5.2239  time: 0.9476  data: 0.3955  max mem: 16271
+Train Epoch: [8]  [  50/4250]  eta: 0:36:53  lr: 0.000002  loss: 5.1545  time: 0.5199  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 100/4250]  eta: 0:36:16  lr: 0.000002  loss: 6.1570  time: 0.5173  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 150/4250]  eta: 0:35:42  lr: 0.000002  loss: 6.7634  time: 0.5192  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 200/4250]  eta: 0:35:12  lr: 0.000002  loss: 4.5517  time: 0.5204  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 250/4250]  eta: 0:34:43  lr: 0.000002  loss: 5.3227  time: 0.5176  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 300/4250]  eta: 0:34:16  lr: 0.000002  loss: 5.8515  time: 0.5171  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 350/4250]  eta: 0:33:48  lr: 0.000002  loss: 5.2205  time: 0.5182  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 400/4250]  eta: 0:33:21  lr: 0.000002  loss: 4.6487  time: 0.5175  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 450/4250]  eta: 0:32:54  lr: 0.000002  loss: 5.6345  time: 0.5165  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 500/4250]  eta: 0:32:27  lr: 0.000002  loss: 4.6909  time: 0.5182  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 550/4250]  eta: 0:32:00  lr: 0.000002  loss: 5.3202  time: 0.5164  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 600/4250]  eta: 0:31:34  lr: 0.000002  loss: 5.2425  time: 0.5181  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 650/4250]  eta: 0:31:08  lr: 0.000002  loss: 4.6860  time: 0.5185  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 700/4250]  eta: 0:30:42  lr: 0.000002  loss: 5.9129  time: 0.5184  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 750/4250]  eta: 0:30:16  lr: 0.000002  loss: 5.8698  time: 0.5185  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 800/4250]  eta: 0:29:50  lr: 0.000002  loss: 5.3091  time: 0.5187  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 850/4250]  eta: 0:29:24  lr: 0.000002  loss: 6.5013  time: 0.5223  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 900/4250]  eta: 0:28:58  lr: 0.000002  loss: 4.8002  time: 0.5177  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [ 950/4250]  eta: 0:28:32  lr: 0.000002  loss: 4.9708  time: 0.5180  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1000/4250]  eta: 0:28:06  lr: 0.000002  loss: 6.0489  time: 0.5170  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1050/4250]  eta: 0:27:40  lr: 0.000002  loss: 6.3402  time: 0.5175  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1100/4250]  eta: 0:27:14  lr: 0.000002  loss: 5.4955  time: 0.5160  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1150/4250]  eta: 0:26:47  lr: 0.000002  loss: 5.3700  time: 0.5175  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1200/4250]  eta: 0:26:21  lr: 0.000002  loss: 6.1337  time: 0.5163  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1250/4250]  eta: 0:25:55  lr: 0.000002  loss: 5.1605  time: 0.5173  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1300/4250]  eta: 0:25:29  lr: 0.000002  loss: 6.0047  time: 0.5170  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1350/4250]  eta: 0:25:03  lr: 0.000002  loss: 5.1595  time: 0.5167  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1400/4250]  eta: 0:24:37  lr: 0.000002  loss: 6.4836  time: 0.5184  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1450/4250]  eta: 0:24:11  lr: 0.000002  loss: 5.2193  time: 0.5183  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1500/4250]  eta: 0:23:45  lr: 0.000002  loss: 5.2264  time: 0.5175  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1550/4250]  eta: 0:23:19  lr: 0.000002  loss: 5.3500  time: 0.5171  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1600/4250]  eta: 0:22:53  lr: 0.000002  loss: 5.9487  time: 0.5206  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1650/4250]  eta: 0:22:28  lr: 0.000002  loss: 6.1102  time: 0.5220  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1700/4250]  eta: 0:22:02  lr: 0.000002  loss: 5.8152  time: 0.5203  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1750/4250]  eta: 0:21:36  lr: 0.000002  loss: 6.1528  time: 0.5211  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1800/4250]  eta: 0:21:10  lr: 0.000002  loss: 5.3453  time: 0.5188  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1850/4250]  eta: 0:20:45  lr: 0.000002  loss: 6.4048  time: 0.5231  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1900/4250]  eta: 0:20:19  lr: 0.000002  loss: 4.8340  time: 0.5197  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [1950/4250]  eta: 0:19:53  lr: 0.000002  loss: 5.7524  time: 0.5197  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2000/4250]  eta: 0:19:27  lr: 0.000002  loss: 6.6415  time: 0.5211  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2050/4250]  eta: 0:19:01  lr: 0.000002  loss: 5.2678  time: 0.5220  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2100/4250]  eta: 0:18:35  lr: 0.000002  loss: 5.4912  time: 0.5200  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2150/4250]  eta: 0:18:10  lr: 0.000002  loss: 5.0532  time: 0.5193  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2200/4250]  eta: 0:17:44  lr: 0.000002  loss: 5.8515  time: 0.5206  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2250/4250]  eta: 0:17:18  lr: 0.000002  loss: 5.9659  time: 0.5248  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2300/4250]  eta: 0:16:52  lr: 0.000002  loss: 6.0783  time: 0.5201  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2350/4250]  eta: 0:16:26  lr: 0.000002  loss: 4.8450  time: 0.5208  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2400/4250]  eta: 0:16:00  lr: 0.000002  loss: 5.7045  time: 0.5220  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2450/4250]  eta: 0:15:34  lr: 0.000002  loss: 4.8742  time: 0.5223  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2500/4250]  eta: 0:15:08  lr: 0.000002  loss: 6.4870  time: 0.5201  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2550/4250]  eta: 0:14:42  lr: 0.000002  loss: 5.8233  time: 0.5242  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2600/4250]  eta: 0:14:17  lr: 0.000002  loss: 6.4797  time: 0.5203  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2650/4250]  eta: 0:13:51  lr: 0.000002  loss: 5.1109  time: 0.5189  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2700/4250]  eta: 0:13:25  lr: 0.000002  loss: 6.4874  time: 0.5172  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2750/4250]  eta: 0:12:59  lr: 0.000002  loss: 5.7936  time: 0.5198  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2800/4250]  eta: 0:12:33  lr: 0.000002  loss: 6.0257  time: 0.5185  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2850/4250]  eta: 0:12:07  lr: 0.000002  loss: 5.7246  time: 0.5187  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2900/4250]  eta: 0:11:41  lr: 0.000002  loss: 5.8946  time: 0.5213  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [2950/4250]  eta: 0:11:15  lr: 0.000002  loss: 6.2832  time: 0.5197  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3000/4250]  eta: 0:10:49  lr: 0.000002  loss: 5.3754  time: 0.5201  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3050/4250]  eta: 0:10:23  lr: 0.000002  loss: 5.5986  time: 0.5213  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3100/4250]  eta: 0:09:57  lr: 0.000002  loss: 6.3666  time: 0.5196  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3150/4250]  eta: 0:09:31  lr: 0.000002  loss: 5.6857  time: 0.5180  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3200/4250]  eta: 0:09:05  lr: 0.000002  loss: 4.7193  time: 0.5180  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3250/4250]  eta: 0:08:39  lr: 0.000002  loss: 5.0841  time: 0.5184  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3300/4250]  eta: 0:08:13  lr: 0.000002  loss: 5.3487  time: 0.5211  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3350/4250]  eta: 0:07:47  lr: 0.000002  loss: 6.0804  time: 0.5196  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3400/4250]  eta: 0:07:21  lr: 0.000002  loss: 5.1887  time: 0.5191  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3450/4250]  eta: 0:06:55  lr: 0.000002  loss: 6.2162  time: 0.5242  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3500/4250]  eta: 0:06:29  lr: 0.000002  loss: 5.9364  time: 0.5195  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3550/4250]  eta: 0:06:03  lr: 0.000002  loss: 5.0397  time: 0.5178  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3600/4250]  eta: 0:05:37  lr: 0.000002  loss: 5.3331  time: 0.5162  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3650/4250]  eta: 0:05:11  lr: 0.000002  loss: 6.6143  time: 0.5189  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3700/4250]  eta: 0:04:45  lr: 0.000002  loss: 5.3523  time: 0.5177  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3750/4250]  eta: 0:04:19  lr: 0.000002  loss: 6.0049  time: 0.5170  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3800/4250]  eta: 0:03:53  lr: 0.000002  loss: 5.7572  time: 0.5183  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3850/4250]  eta: 0:03:27  lr: 0.000002  loss: 5.1748  time: 0.5186  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3900/4250]  eta: 0:03:01  lr: 0.000002  loss: 5.9492  time: 0.5180  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [3950/4250]  eta: 0:02:35  lr: 0.000002  loss: 5.3700  time: 0.5170  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [4000/4250]  eta: 0:02:09  lr: 0.000002  loss: 6.4046  time: 0.5169  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [4050/4250]  eta: 0:01:43  lr: 0.000002  loss: 5.4454  time: 0.5185  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [4100/4250]  eta: 0:01:17  lr: 0.000002  loss: 5.4356  time: 0.5176  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [4150/4250]  eta: 0:00:51  lr: 0.000002  loss: 5.3716  time: 0.5163  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [4200/4250]  eta: 0:00:25  lr: 0.000002  loss: 5.6572  time: 0.5180  data: 0.0001  max mem: 16271
+Train Epoch: [8]  [4249/4250]  eta: 0:00:00  lr: 0.000002  loss: 5.4874  time: 0.5166  data: 0.0001  max mem: 16271
+Train Epoch: [8] Total time: 0:36:47 (0.5193 s / it)
+Averaged stats: lr: 0.0000  loss: 5.7644
+Train Epoch: [9]  [   0/4250]  eta: 1:07:47  lr: 0.000000  loss: 5.3702  time: 0.9570  data: 0.3862  max mem: 16271
+Train Epoch: [9]  [  50/4250]  eta: 0:36:59  lr: 0.000000  loss: 6.5699  time: 0.5225  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 100/4250]  eta: 0:36:21  lr: 0.000000  loss: 5.4140  time: 0.5240  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 150/4250]  eta: 0:35:48  lr: 0.000000  loss: 6.6558  time: 0.5195  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 200/4250]  eta: 0:35:20  lr: 0.000000  loss: 5.1455  time: 0.5196  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 250/4250]  eta: 0:34:51  lr: 0.000000  loss: 5.7634  time: 0.5192  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 300/4250]  eta: 0:34:22  lr: 0.000000  loss: 5.5563  time: 0.5196  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 350/4250]  eta: 0:33:53  lr: 0.000000  loss: 5.5031  time: 0.5166  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 400/4250]  eta: 0:33:25  lr: 0.000000  loss: 4.9279  time: 0.5172  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 450/4250]  eta: 0:32:58  lr: 0.000000  loss: 5.7862  time: 0.5181  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 500/4250]  eta: 0:32:31  lr: 0.000000  loss: 5.3836  time: 0.5186  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 550/4250]  eta: 0:32:04  lr: 0.000000  loss: 5.2583  time: 0.5179  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 600/4250]  eta: 0:31:38  lr: 0.000000  loss: 4.7382  time: 0.5230  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 650/4250]  eta: 0:31:12  lr: 0.000000  loss: 4.7298  time: 0.5213  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 700/4250]  eta: 0:30:47  lr: 0.000000  loss: 6.4948  time: 0.5207  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 750/4250]  eta: 0:30:21  lr: 0.000000  loss: 6.1164  time: 0.5202  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 800/4250]  eta: 0:29:55  lr: 0.000000  loss: 6.3244  time: 0.5190  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 850/4250]  eta: 0:29:28  lr: 0.000000  loss: 4.8342  time: 0.5200  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 900/4250]  eta: 0:29:03  lr: 0.000000  loss: 5.3801  time: 0.5223  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [ 950/4250]  eta: 0:28:37  lr: 0.000000  loss: 5.2032  time: 0.5230  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [1000/4250]  eta: 0:28:11  lr: 0.000000  loss: 5.1976  time: 0.5204  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [1050/4250]  eta: 0:27:45  lr: 0.000000  loss: 5.2857  time: 0.5219  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [1100/4250]  eta: 0:27:19  lr: 0.000000  loss: 5.0546  time: 0.5214  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [1150/4250]  eta: 0:26:53  lr: 0.000000  loss: 6.7647  time: 0.5259  data: 0.0001  max mem: 16271
+Train Epoch: [9]  [1200/4250]  eta: 0:26:28  lr: 0.000000  loss: 5.1992  time: 0.5222  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1250/4250]  eta: 0:26:01  lr: 0.000000  loss: 5.1749  time: 0.5179  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1300/4250]  eta: 0:25:36  lr: 0.000000  loss: 6.0160  time: 0.5211  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1350/4250]  eta: 0:25:09  lr: 0.000000  loss: 5.7777  time: 0.5191  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1400/4250]  eta: 0:24:43  lr: 0.000000  loss: 5.6186  time: 0.5185  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1450/4250]  eta: 0:24:17  lr: 0.000000  loss: 5.5697  time: 0.5188  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1500/4250]  eta: 0:23:51  lr: 0.000000  loss: 4.2393  time: 0.5198  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1550/4250]  eta: 0:23:25  lr: 0.000000  loss: 5.4487  time: 0.5192  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1600/4250]  eta: 0:22:59  lr: 0.000000  loss: 5.3858  time: 0.5194  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1650/4250]  eta: 0:22:33  lr: 0.000000  loss: 5.5047  time: 0.5184  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1700/4250]  eta: 0:22:07  lr: 0.000000  loss: 4.8516  time: 0.5204  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1750/4250]  eta: 0:21:41  lr: 0.000000  loss: 6.5765  time: 0.5223  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1800/4250]  eta: 0:21:15  lr: 0.000000  loss: 6.3259  time: 0.5198  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1850/4250]  eta: 0:20:49  lr: 0.000000  loss: 5.3733  time: 0.5182  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1900/4250]  eta: 0:20:23  lr: 0.000000  loss: 4.5897  time: 0.5180  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [1950/4250]  eta: 0:19:57  lr: 0.000000  loss: 4.9358  time: 0.5202  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2000/4250]  eta: 0:19:30  lr: 0.000000  loss: 6.2990  time: 0.5196  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2050/4250]  eta: 0:19:04  lr: 0.000000  loss: 5.6062  time: 0.5203  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2100/4250]  eta: 0:18:38  lr: 0.000000  loss: 5.8831  time: 0.5220  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2150/4250]  eta: 0:18:13  lr: 0.000000  loss: 7.6514  time: 0.5216  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2200/4250]  eta: 0:17:47  lr: 0.000000  loss: 5.0420  time: 0.5235  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2250/4250]  eta: 0:17:21  lr: 0.000000  loss: 5.8787  time: 0.5191  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2300/4250]  eta: 0:16:54  lr: 0.000000  loss: 6.3655  time: 0.5170  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2350/4250]  eta: 0:16:28  lr: 0.000000  loss: 5.7796  time: 0.5178  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2400/4250]  eta: 0:16:02  lr: 0.000000  loss: 6.1368  time: 0.5194  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2450/4250]  eta: 0:15:36  lr: 0.000000  loss: 6.2853  time: 0.5176  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2500/4250]  eta: 0:15:10  lr: 0.000000  loss: 6.0651  time: 0.5176  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2550/4250]  eta: 0:14:44  lr: 0.000000  loss: 5.7881  time: 0.5170  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2600/4250]  eta: 0:14:18  lr: 0.000000  loss: 6.4440  time: 0.5182  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2650/4250]  eta: 0:13:52  lr: 0.000000  loss: 4.8709  time: 0.5189  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2700/4250]  eta: 0:13:26  lr: 0.000000  loss: 5.9931  time: 0.5177  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2750/4250]  eta: 0:13:00  lr: 0.000000  loss: 5.1537  time: 0.5175  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2800/4250]  eta: 0:12:34  lr: 0.000000  loss: 6.2919  time: 0.5192  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2850/4250]  eta: 0:12:08  lr: 0.000000  loss: 5.6385  time: 0.5214  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2900/4250]  eta: 0:11:42  lr: 0.000000  loss: 4.8627  time: 0.5198  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [2950/4250]  eta: 0:11:16  lr: 0.000000  loss: 5.9892  time: 0.5220  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3000/4250]  eta: 0:10:50  lr: 0.000000  loss: 6.0488  time: 0.5191  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3050/4250]  eta: 0:10:24  lr: 0.000000  loss: 5.6096  time: 0.5191  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3100/4250]  eta: 0:09:58  lr: 0.000000  loss: 6.4197  time: 0.5229  data: 0.0002  max mem: 16437
+Train Epoch: [9]  [3150/4250]  eta: 0:09:32  lr: 0.000000  loss: 6.3442  time: 0.5198  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3200/4250]  eta: 0:09:06  lr: 0.000000  loss: 4.8849  time: 0.5185  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3250/4250]  eta: 0:08:40  lr: 0.000000  loss: 6.0382  time: 0.5187  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3300/4250]  eta: 0:08:14  lr: 0.000000  loss: 4.7021  time: 0.5167  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3350/4250]  eta: 0:07:47  lr: 0.000000  loss: 5.4037  time: 0.5175  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3400/4250]  eta: 0:07:21  lr: 0.000000  loss: 5.7745  time: 0.5159  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3450/4250]  eta: 0:06:55  lr: 0.000000  loss: 5.0364  time: 0.5191  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3500/4250]  eta: 0:06:29  lr: 0.000000  loss: 4.9834  time: 0.5184  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3550/4250]  eta: 0:06:03  lr: 0.000000  loss: 5.7113  time: 0.5221  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3600/4250]  eta: 0:05:37  lr: 0.000000  loss: 5.8620  time: 0.5215  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3650/4250]  eta: 0:05:11  lr: 0.000000  loss: 5.9204  time: 0.5188  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3700/4250]  eta: 0:04:45  lr: 0.000000  loss: 5.9956  time: 0.5175  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3750/4250]  eta: 0:04:19  lr: 0.000000  loss: 4.7723  time: 0.5196  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3800/4250]  eta: 0:03:53  lr: 0.000000  loss: 6.7786  time: 0.5162  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3850/4250]  eta: 0:03:27  lr: 0.000000  loss: 6.5605  time: 0.5163  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3900/4250]  eta: 0:03:01  lr: 0.000000  loss: 5.3565  time: 0.5181  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [3950/4250]  eta: 0:02:35  lr: 0.000000  loss: 5.7815  time: 0.5181  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [4000/4250]  eta: 0:02:09  lr: 0.000000  loss: 6.8746  time: 0.5157  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [4050/4250]  eta: 0:01:43  lr: 0.000000  loss: 5.5510  time: 0.5181  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [4100/4250]  eta: 0:01:17  lr: 0.000000  loss: 6.0074  time: 0.5178  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [4150/4250]  eta: 0:00:51  lr: 0.000000  loss: 6.0439  time: 0.5163  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [4200/4250]  eta: 0:00:25  lr: 0.000000  loss: 5.9346  time: 0.5157  data: 0.0001  max mem: 16437
+Train Epoch: [9]  [4249/4250]  eta: 0:00:00  lr: 0.000000  loss: 5.4620  time: 0.5199  data: 0.0001  max mem: 16437
+Train Epoch: [9] Total time: 0:36:48 (0.5196 s / it)
+Averaged stats: lr: 0.0000  loss: 5.6954
+Generate VQA test result:  [  0/419]  eta: 0:14:11    time: 2.0324  data: 0.8129  max mem: 16437
+Generate VQA test result:  [ 50/419]  eta: 0:04:11    time: 0.6571  data: 0.0002  max mem: 16437
+Generate VQA test result:  [100/419]  eta: 0:03:33    time: 0.6568  data: 0.0002  max mem: 16437
+Generate VQA test result:  [150/419]  eta: 0:02:59    time: 0.6591  data: 0.0002  max mem: 16437
+Generate VQA test result:  [200/419]  eta: 0:02:25    time: 0.6554  data: 0.0002  max mem: 16437
+Generate VQA test result:  [250/419]  eta: 0:01:51    time: 0.6558  data: 0.0002  max mem: 16437
+Generate VQA test result:  [300/419]  eta: 0:01:18    time: 0.6579  data: 0.0002  max mem: 16437
+Generate VQA test result:  [350/419]  eta: 0:00:45    time: 0.6612  data: 0.0002  max mem: 16437
+Generate VQA test result:  [400/419]  eta: 0:00:12    time: 0.6587  data: 0.0001  max mem: 16437
+Generate VQA test result:  [418/419]  eta: 0:00:00    time: 0.6579  data: 0.0002  max mem: 16437
+Generate VQA test result: Total time: 0:04:36 (0.6609 s / it)
+result file saved to cache/self_trained_weights/result/vqa_result.json
+Training time 1:55:18
+[rank0]:[W519 15:19:50.920440255 ProcessGroupNCCL.cpp:1647] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())

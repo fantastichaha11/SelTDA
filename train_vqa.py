@@ -153,6 +153,42 @@ def evaluation(model, data_loader, device, config):
     return result
 
 
+def find_latest_checkpoint(output_dir):
+    """
+    Tìm file checkpoint mới nhất trong output_dir.
+    Checkpoint có dạng: checkpoint_XX.pth
+    Trả về (path, epoch) nếu tìm thấy, ngược lại trả về (None, -1).
+    """
+    checkpoint_dir = Path(output_dir)
+    checkpoints = sorted(checkpoint_dir.glob("checkpoint_*.pth"))
+    if not checkpoints:
+        return None, -1
+
+    latest = checkpoints[-1]  # đã sort theo tên → epoch lớn nhất ở cuối
+    # Trích epoch từ tên file: checkpoint_07.pth → 7
+    try:
+        epoch = int(latest.stem.split("_")[-1])
+    except ValueError:
+        return None, -1
+
+    return str(latest), epoch
+
+
+def resume_from_checkpoint(checkpoint_path, model, optimizer, device):
+    """Load state từ checkpoint vào model và optimizer."""
+    print(f"Resuming training from checkpoint: {checkpoint_path}")
+    
+    # PyTorch 2.6+ đổi default weights_only=True, nhưng checkpoint
+    # chứa OmegaConf.DictConfig nên cần weights_only=False
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    start_epoch = checkpoint["epoch"] + 1
+    print(f"Resumed successfully. Starting from epoch {start_epoch}.")
+    return start_epoch
+
+
 def main(args, config):
     utils.init_distributed_mode(args)
 
@@ -217,12 +253,22 @@ def main(args, config):
         weight_decay=config["weight_decay"],
     )
 
-    best = 0
-    best_epoch = 0
+    # ── Resume từ checkpoint mới nhất nếu có ──────────────────────────────
+    start_epoch = 0
+    checkpoint_path, last_epoch = find_latest_checkpoint(args.output_dir)
+    if checkpoint_path is not None:
+        start_epoch = resume_from_checkpoint(
+            checkpoint_path, model_without_ddp, optimizer, device
+        )
+    # ──────────────────────────────────────────────────────────────────────
 
     print("Start training")
     start_time = time.time()
-    epochs = list(range(0, config.max_epoch))
+    epochs = list(range(start_epoch, config.max_epoch))  # bắt đầu từ start_epoch
+
+    if not epochs:
+        print("All epochs already completed. Skipping training.")
+
     for epoch in epochs:
         if not args.evaluate:
             if args.distributed:
@@ -236,9 +282,7 @@ def main(args, config):
                 config["min_lr"],
             )
 
-            train_stats = train(
-                model, train_loader, optimizer, epoch, device
-            )
+            train_stats = train(model, train_loader, optimizer, epoch, device)
 
         else:
             break
