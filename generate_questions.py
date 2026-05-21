@@ -2,7 +2,7 @@ import glob
 import json
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import attrs
 import torch
@@ -69,6 +69,46 @@ def collate_safe(batch):
     return torch.utils.data.dataloader.default_collate(reconstituted_batch)
 
 
+def _compute_mean_logprob(model, images, texts) -> list:
+    """Teacher-forced mean log-prob per generated string (for Gate 1 confidence)."""
+    import torch.nn.functional as F
+
+    tokenizer = model.tokenizer
+    with torch.no_grad():
+        image_embeds = model.visual_encoder(images)
+        image_atts = torch.ones(
+            image_embeds.size()[:-1], dtype=torch.long, device=images.device
+        )
+        enc = tokenizer(
+            list(texts),
+            padding="longest",
+            return_tensors="pt",
+            truncation=True,
+            max_length=64,
+        ).to(images.device)
+        input_ids = enc.input_ids
+        attention_mask = enc.attention_mask
+        labels = input_ids.masked_fill(input_ids == tokenizer.pad_token_id, -100)
+        out = model.text_decoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            encoder_hidden_states=image_embeds,
+            encoder_attention_mask=image_atts,
+            labels=labels,
+            return_dict=True,
+        )
+        logits = out.logits
+        shift_logits = logits[:, :-1, :].contiguous()
+        shift_labels = input_ids[:, 1:].contiguous()
+        shift_mask = attention_mask[:, 1:].contiguous().float()
+        log_probs = F.log_softmax(shift_logits, dim=-1)
+        gathered = log_probs.gather(-1, shift_labels.unsqueeze(-1)).squeeze(-1)
+        per_sample = (gathered * shift_mask).sum(dim=1) / shift_mask.sum(dim=1).clamp(
+            min=1.0
+        )
+    return per_sample.cpu().tolist()
+
+
 @attrs.define
 class VQARecord:
     question_id: int
@@ -77,6 +117,8 @@ class VQARecord:
     image: str
     dataset: str
     rationale: Optional[str] = None
+    gen_logprob: Optional[float] = None
+    scores: Optional[Dict[str, float]] = None
 
     @classmethod
     def build_from_raw_model_output(
@@ -290,20 +332,24 @@ def main(args, config):
                     min_length=config.min_length,
                 )
 
-            for idx, (model_output, image_path) in enumerate(zip(outputs, image_paths)):
+            try:
+                logprobs = _compute_mean_logprob(model, images, outputs)
+            except Exception as e:
+                logger.warning("Failed to compute logprob, falling back to None: %s", e)
+                logprobs = [None] * len(outputs)
+
+            for idx, (model_output, image_path, lp) in enumerate(
+                zip(outputs, image_paths, logprobs)
+            ):
                 try:
                     record = VQARecord.build_from_raw_model_output(
                         model_output,
                         image_path,
                         dataset_origin=VQADatasetOrigin(config.vqa_dataset_origin),
-                        # We don't want a mix of rationale / non rationale questions.
-                        # If the config says we want rationales, every question
-                        # should have one. So we tell the code explicitly to
-                        # parse the rationale, and it will throw an error if it
-                        # couldn't parse one.
                         parse_rationale=config.parse_rationale,
                     )
                     record.question_id = idx
+                    record.gen_logprob = lp
                 except Exception as e:
                     if isinstance(e, KeyboardInterrupt):
                         raise e

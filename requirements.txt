@@ -8,3 +8,7 @@ opencv-python==4.6.0.66
 timm==0.4.12
 fairscale==0.4.4
 transformers==4.21.3
+open_clip_torch==2.20.0
+sentence-transformers==2.2.2
+huggingface_hub==0.13.4
+pytest

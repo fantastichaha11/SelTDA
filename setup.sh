@@ -14,6 +14,9 @@ echo "Activating environment"
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate $ENV_NAME
 
+# Tránh pip lấy package từ ~/.local (gây xung đột torch/transformers)
+export PYTHONNOUSERSITE=1
+
 echo "Installing PyTorch + torchvision (CUDA 12.6)"
 
 pip install torch torchvision \
@@ -25,4 +28,6 @@ pip install -r requirements.txt
 
 echo "Done!"
 echo "Activate with:"
-echo "conda activate $ENV_NAME"
+echo "  conda activate $ENV_NAME"
+echo "Recommended (tránh leak ~/.local):"
+echo "  export PYTHONNOUSERSITE=1"

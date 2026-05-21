@@ -1,0 +1,7 @@
+[
+  {"question_id": 0, "question": "what is this animal?", "answer": ["dog"], "image": "vg/img_0.jpg", "dataset": "vg", "rationale": null, "gen_logprob": -0.50},
+  {"question_id": 1, "question": "how many cats?", "answer": ["2"], "image": "vg/img_1.jpg", "dataset": "vg", "rationale": null, "gen_logprob": -3.10},
+  {"question_id": 2, "question": "is it raining?", "answer": ["yes"], "image": "vg/img_2.jpg", "dataset": "vg", "rationale": null, "gen_logprob": -0.20},
+  {"question_id": 3, "question": "is the sky blue?", "answer": ["no"], "image": "vg/img_3.jpg", "dataset": "vg", "rationale": null, "gen_logprob": -5.00},
+  {"question_id": 4, "question": "what color is the car?", "answer": ["red"], "image": "vg/img_4.jpg", "dataset": "vg", "rationale": null, "gen_logprob": -1.20}
+]
