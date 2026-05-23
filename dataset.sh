@@ -77,8 +77,20 @@ echo "Downloading COCO2017 test images..."
 aria2c -x 16 -s 32 \
 http://images.cocodataset.org/zips/test2017.zip
 
+echo "Downloading COCO2017 unlabeled images..."
+
+if [ ! -d "unlabeled2017" ] || [ -z "$(find unlabeled2017 -maxdepth 1 -name '*.jpg' -print -quit 2>/dev/null)" ]; then
+    aria2c -x 16 -s 32 \
+    http://images.cocodataset.org/zips/unlabeled2017.zip
+
+    unzip -q unlabeled2017.zip
+    rm -f unlabeled2017.zip
+else
+    echo "COCO2017 unlabeled images already present, skipping download."
+fi
+
 # =========================
-# Extract COCO
+# Extract COCO (labeled splits)
 # =========================
 
 echo "Extracting COCO2017..."
@@ -122,5 +134,30 @@ sed -i \
 "${PY_FILE}"
 
 echo "Updated ${PY_FILE}"
+
+# =========================
+# Download teacher checkpoint (VQG, A-OKVQA)
+# Google Drive: checkpoint_04.pth
+# https://drive.google.com/file/d/19Y9oQNlYBTkoT4sYuUQWrEV9iUatPkdI/view
+# =========================
+
+TEACHER_DIR="${PROJECT_ROOT}/cache/teacher_weights"
+TEACHER_CKPT="${TEACHER_DIR}/checkpoint_04.pth"
+GDRIVE_FILE_ID="19Y9oQNlYBTkoT4sYuUQWrEV9iUatPkdI"
+
+mkdir -p "${TEACHER_DIR}"
+
+if [ ! -f "${TEACHER_CKPT}" ]; then
+    echo "Downloading teacher checkpoint to ${TEACHER_CKPT}..."
+
+    if ! command -v gdown &> /dev/null; then
+        echo "Installing gdown..."
+        pip install -q gdown
+    fi
+
+    gdown "https://drive.google.com/uc?id=${GDRIVE_FILE_ID}" -O "${TEACHER_CKPT}"
+else
+    echo "Teacher checkpoint already exists: ${TEACHER_CKPT}"
+fi
 
 echo "All done!"
