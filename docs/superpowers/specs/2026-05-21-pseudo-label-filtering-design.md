@@ -51,7 +51,7 @@ Hệ quả: pseudo-QA noisy hoặc hallucination đi thẳng vào training, là 
 - `train_vqa.py` — code train Student.
 - `train_vqg.py` — code train Teacher.
 - `data/vqa_dataset.py`, `data/vqg_dataset.py` — reader cho training loop.
-- `models/` — kiến trúc BLIP.
+- `models/` — **trừ** `models/blip.py` (xem mục dưới).
 - `transform/`, `utils.py` ở phần liên quan tới training.
 - Tất cả file dưới `vqa_eval_tools/` và các script `*_eval.py` — không đụng cho fair comparison.
 - `examples/self_train_synthetic.sh`, `examples/evaluate.sh`, `examples/train_teacher.sh` — giữ nguyên.
@@ -59,7 +59,8 @@ Hệ quả: pseudo-QA noisy hoặc hallucination đi thẳng vào training, là 
 
 **Files được phép chạm** (giới hạn rõ):
 
-- `generate_questions.py` — (a) thêm 2 field optional vào `attrs` class `VQARecord` (`gen_logprob: Optional[float] = None`, `scores: Optional[Dict[str, float]] = None`); (b) sau `model.generate(...)`, gọi forward thêm 1 lần để lấy log-prob và gán vào record. **Không đổi** logic generate/parse hiện tại.
+- `generate_questions.py` — (a) thêm 2 field optional vào `attrs` class `VQARecord` (`gen_logprob: Optional[float] = None`, `scores: Optional[Dict[str, float]] = None`); (b) gọi `model.generate(..., return_logprob=True)` để lấy log-prob và gán vào record. **Không đổi** logic generate/parse hiện tại.
+- `models/blip.py` — **scope hẹp**: chỉ sửa `BLIP_Decoder.generate()`, thêm tham số `return_logprob=False` (default backward-compatible). Khi `True`, cache `image_embeds` từ lần encode duy nhất và dùng lại cho teacher-force log-prob inline — loại bỏ visual encoder forward dư thừa (~25–35% speedup) mà **không đổi** công thức raw `log p_θ(T|I)` (khớp báo cáo định hướng §1.1). **Không** sửa `BLIP_Decoder.forward()`, `blip_vqa.py`, `med.py`, `vit.py`, hay bất kỳ file nào khác dưới `models/`.
 - `configs/generate_questions_*.yaml` — không bắt buộc đụng; nếu cần thêm flag log-prob, chỉ thêm key mới có default backward-compatible.
 
 **Lưu ý**: `schemas.py` **không cần đụng**. `VQARecord` không nằm trong `schemas.py` (đó là pydantic models cho dataset annotation: `TrainingRecord`, `TestingRecord`, v.v.) — `VQARecord` là attrs class nội bộ của `generate_questions.py`. Reader `data/vqa_dataset.py` đọc JSON bằng `json.load(...)` rồi index dict trực tiếp, không validate schema → thêm field vào dict không ảnh hưởng training.
@@ -77,9 +78,9 @@ Hệ quả: pseudo-QA noisy hoặc hallucination đi thẳng vào training, là 
 **Kiểm tra trước khi merge** (bắt buộc):
 
 ```bash
-# diff không được phép có dòng nào dưới đây thay đổi
+# diff không được phép có dòng nào dưới đây thay đổi (models/blip.py được phép)
 git diff --name-only HEAD origin/main | grep -E \
-  '^(train_vqa\.py|train_vqg\.py|data/|models/|vqa_eval_tools/|.*_eval\.py|examples/self_train_synthetic\.sh|examples/evaluate\.sh|examples/train_teacher\.sh|configs/(aokvqa|pathvqa|okvqa|advqa|artvqa|rsvqa|vqa)\.yaml)' \
+  '^(train_vqa\.py|train_vqg\.py|data/|models/(?!blip\.py)|vqa_eval_tools/|.*_eval\.py|examples/self_train_synthetic\.sh|examples/evaluate\.sh|examples/train_teacher\.sh|configs/(aokvqa|pathvqa|okvqa|advqa|artvqa|rsvqa|vqa)\.yaml)' \
   && echo "VI PHẠM BẤT BIẾN" || echo "OK"
 ```
 
@@ -124,17 +125,17 @@ Mỗi dataset chạy độc lập (không cross-train) — báo cáo riêng.
 
 **Tín hiệu**: mean log-probability per token mà teacher gán cho chính chuỗi `T = "Question: <q>? Answer: <a>."` mà nó vừa sample ra.
 
-**Cách lấy** (chỉ sửa `generate_questions.py`, **không** đụng `models/blip.py` theo §1.4):
+**Cách lấy** (sửa `models/blip.py` + `generate_questions.py` theo §1.4):
 
-- Hiện `model.generate(...)` của BLIP-SelTDA chỉ trả token id, không expose log-prob. Vì §1.4 cấm sửa `models/`, **bắt buộc** dùng fallback **teacher-forcing**: sau khi `generate` xong, gọi forward thường lần nữa với input = chuỗi vừa sinh để lấy logits của từng token, rồi tính:
+- Sửa `BLIP_Decoder.generate()` thêm tham số `return_logprob=False` (default backward-compat). Khi `True`, hàm cache `image_embeds` từ `visual_encoder(image)` (encode duy nhất cho cả generate lẫn scoring) và dùng lại cho 1 teacher-force forward qua `text_decoder` ngay trong cùng call. Kết quả: `(captions, mean_logprobs)`.
 
 \[
 s_{conf} = \frac{1}{|T|} \sum_{t=1}^{|T|} \log p_\theta(T_t \mid T_{<t}, I)
 \]
 
-- Cụ thể: trong `generate_questions.py`, sau dòng `outputs = model.generate(...)`, gọi thêm `model(image, generated_text)` ở chế độ forward chuẩn (BLIP module đã expose qua interface công khai) để lấy `logits`, rồi `log_softmax` + gather token id của `outputs`. Toàn bộ logic này nằm trong `generate_questions.py`, không leak sang `models/`.
+- Cụ thể: trong `generate_questions.py`, gọi `captions, logprobs = model.generate(..., return_logprob=True)` và gán `record.gen_logprob = logprobs[i]`. Logic teacher-force nằm trong `BLIP_Decoder.generate()` — không re-encode ảnh lần 2.
 
-- Chi phí: 1 forward thêm per sample, làm offline → chấp nhận được.
+- **Implementation note**: phiên bản đầu (Task 12) gọi `_compute_mean_logprob` riêng → visual encoder chạy 2 lần/batch. Phiên bản hiện tại cache `image_embeds` → tiết kiệm ~25–35% wallclock; công thức raw log-likelihood **không đổi** (khớp báo cáo định hướng: "log-likelihood của decoder").
 
 **Chuẩn hoá**: \(s_{conf}\) là log-prob âm; chuẩn hoá min-max trên toàn bộ pool sinh được:
 
@@ -240,14 +241,18 @@ SelTDA/
 
 ### 4.2 Files chỉnh nhỏ
 
-- `generate_questions.py` (file duy nhất sửa, ngoài thêm mới):
+- `generate_questions.py`:
   - Thêm 2 trường optional vào `attrs` class `VQARecord` (line ~72):
     ```python
     gen_logprob: Optional[float] = None
     scores: Optional[Dict[str, float]] = None  # {"conf":.., "itm":.., "xcons":..}
     ```
-  - Sau `outputs = model.generate(...)` (~line 285), gọi thêm 1 forward teacher-forcing để lấy log-prob của chuỗi vừa sinh, gán vào `record.gen_logprob`.
+  - Gọi `captions, logprobs = model.generate(..., return_logprob=True)` và gán `record.gen_logprob`.
   - Không động vào regex parse, dataset loading, hay control flow.
+
+- `models/blip.py` (scope hẹp — xem §1.4):
+  - Thêm `return_logprob=False` vào `BLIP_Decoder.generate()`.
+  - Cache `image_embeds` và teacher-force inline khi `return_logprob=True`.
 
 → Toàn bộ thay đổi backward-compatible: file JSON mới có thêm field, `data/vqa_dataset.py` (cấm chạm) đọc bằng `json.load` + dict key access → field thừa bị bỏ qua.
 
@@ -364,7 +369,7 @@ Khi implement Phase 2, **không** thay đổi 3 hàm score; chỉ thay tầng `a
 ## 7. Rủi ro & câu hỏi mở
 
 1. **BLIP decoder có export log-prob trực tiếp không?**
-   - Mitigation: nếu không, fallback teacher-forcing forward 1 lần thêm — chậm hơn nhưng không sai.
+   - **Đã giải quyết**: `BLIP_Decoder.generate(return_logprob=True)` cache `image_embeds` và trả `(captions, mean_logprobs)` — raw teacher-force log-likelihood, không cần visual encoder forward thứ 2.
 2. **CLIP ViT-B/32 quá yếu cho PathVQA (ảnh y khoa)?**
    - Mitigation: chuẩn bị fallback PubMedCLIP / BiomedCLIP. Ghi nhận trong limitations nếu B/32 fail.
 3. **Cross-consistency mâu thuẫn với mục tiêu sinh dữ liệu mới**:

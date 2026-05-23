@@ -167,17 +167,20 @@ class BLIP_Decoder(nn.Module):
         min_length=10,
         top_p=0.9,
         repetition_penalty=1.0,
+        return_logprob=False,
     ):
         image_embeds = self.visual_encoder(image)
 
         if not sample:
-            image_embeds = image_embeds.repeat_interleave(num_beams, dim=0)
+            image_embeds_gen = image_embeds.repeat_interleave(num_beams, dim=0)
+        else:
+            image_embeds_gen = image_embeds
 
-        image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
+        image_atts = torch.ones(image_embeds_gen.size()[:-1], dtype=torch.long).to(
             image.device
         )
         model_kwargs = {
-            "encoder_hidden_states": image_embeds,
+            "encoder_hidden_states": image_embeds_gen,
             "encoder_attention_mask": image_atts,
         }
 
@@ -219,6 +222,29 @@ class BLIP_Decoder(nn.Module):
         for output in outputs:
             caption = self.tokenizer.decode(output, skip_special_tokens=True)
             captions.append(caption[len(self.prompt) :])
+
+        if return_logprob:
+            attn_mask = (outputs != self.tokenizer.pad_token_id).long()
+            labels = outputs.masked_fill(outputs == self.tokenizer.pad_token_id, -100)
+            decoder_out = self.text_decoder(
+                input_ids=outputs,
+                attention_mask=attn_mask,
+                encoder_hidden_states=image_embeds_gen,
+                encoder_attention_mask=image_atts,
+                labels=labels,
+                return_dict=True,
+            )
+            logits = decoder_out.logits
+            shift_logits = logits[:, :-1, :].contiguous()
+            shift_labels = outputs[:, 1:].contiguous()
+            shift_mask = attn_mask[:, 1:].contiguous().float()
+            log_probs = F.log_softmax(shift_logits, dim=-1)
+            gathered = log_probs.gather(-1, shift_labels.unsqueeze(-1)).squeeze(-1)
+            mean_lp = (gathered * shift_mask).sum(dim=1) / shift_mask.sum(
+                dim=1
+            ).clamp(min=1.0)
+            return captions, mean_lp.cpu().tolist()
+
         return captions
 
 

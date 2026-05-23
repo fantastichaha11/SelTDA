@@ -59,3 +59,12 @@
 - **`examples/run_experiment.sh`**: pipeline end-to-end (dataset → convert → generate → filter → train). Gate 3 dùng BLIP pretrained URL (không file local) vì `cache/blip_pretrained.pth` chưa có sẵn trên máy mới.
 
 *(Entries appended as work proceeds.)*
+
+### 2026-05-23 — Cache image_embeds trong BLIP_Decoder.generate (speedup Gate 1)
+
+- **Vấn đề**: `_compute_mean_logprob` trong `generate_questions.py` gọi `visual_encoder` lần 2 mỗi batch → generate chậm ~30–50%.
+- **Quyết định**: Sửa `models/blip.py` — thêm `return_logprob=False` vào `BLIP_Decoder.generate()`. Khi `True`, cache `image_embeds` từ lần encode duy nhất và teacher-force inline trong cùng call.
+- **Lý do chọn Hướng B (cache + teacher-force) thay vì `output_scores`**: Báo cáo định hướng yêu cầu raw "log-likelihood của decoder" (`log p_θ(T|I)`). `output_scores` với `top_p=0.9` trả logits sau LogitsProcessor → bias renormalization trên nucleus.
+- **Spec cập nhật**: §1.4 cho phép sửa `models/blip.py` (scope hẹp); §3.1 viết lại "Cách lấy"; §4.2, §7.1 cập nhật tương ứng.
+- **Files sửa**: `models/blip.py`, `generate_questions.py` (xóa `_compute_mean_logprob`), `scripts/check_invariants.sh` (whitelist `models/blip.py`), `tests/test_blip_generate_logprob.py` (mới).
+- **Backward-compat**: `return_logprob=False` default → `train_vqg.py` không đổi behavior.

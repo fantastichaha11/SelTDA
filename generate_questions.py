@@ -69,46 +69,6 @@ def collate_safe(batch):
     return torch.utils.data.dataloader.default_collate(reconstituted_batch)
 
 
-def _compute_mean_logprob(model, images, texts) -> list:
-    """Teacher-forced mean log-prob per generated string (for Gate 1 confidence)."""
-    import torch.nn.functional as F
-
-    tokenizer = model.tokenizer
-    with torch.no_grad():
-        image_embeds = model.visual_encoder(images)
-        image_atts = torch.ones(
-            image_embeds.size()[:-1], dtype=torch.long, device=images.device
-        )
-        enc = tokenizer(
-            list(texts),
-            padding="longest",
-            return_tensors="pt",
-            truncation=True,
-            max_length=64,
-        ).to(images.device)
-        input_ids = enc.input_ids
-        attention_mask = enc.attention_mask
-        labels = input_ids.masked_fill(input_ids == tokenizer.pad_token_id, -100)
-        out = model.text_decoder(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            encoder_hidden_states=image_embeds,
-            encoder_attention_mask=image_atts,
-            labels=labels,
-            return_dict=True,
-        )
-        logits = out.logits
-        shift_logits = logits[:, :-1, :].contiguous()
-        shift_labels = input_ids[:, 1:].contiguous()
-        shift_mask = attention_mask[:, 1:].contiguous().float()
-        log_probs = F.log_softmax(shift_logits, dim=-1)
-        gathered = log_probs.gather(-1, shift_labels.unsqueeze(-1)).squeeze(-1)
-        per_sample = (gathered * shift_mask).sum(dim=1) / shift_mask.sum(dim=1).clamp(
-            min=1.0
-        )
-    return per_sample.cpu().tolist()
-
-
 @attrs.define
 class VQARecord:
     question_id: int
@@ -333,19 +293,14 @@ def main(args, config):
         # are repeating the image and generating a new question each time.
         for _ in range(config.questions_per_image):
             with torch.no_grad():
-                outputs = model.generate(
+                outputs, logprobs = model.generate(
                     images,
                     sample=True,
                     top_p=config.top_p,
                     max_length=config.max_length,
                     min_length=config.min_length,
+                    return_logprob=True,
                 )
-
-            try:
-                logprobs = _compute_mean_logprob(model, images, outputs)
-            except Exception as e:
-                logger.warning("Failed to compute logprob, falling back to None: %s", e)
-                logprobs = [None] * len(outputs)
 
             for idx, (model_output, image_path, lp) in enumerate(
                 zip(outputs, image_paths, logprobs)
