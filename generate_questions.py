@@ -134,12 +134,17 @@ class VQARecord:
             parsed = re.search(ques_answer_rationale, model_output)
             if parsed is None:
                 parsed = re.search(rationale_ques_answer, model_output)
+            if parsed is None:
+                raise ParseModelOutputError(model_output)
 
             question = parsed.group("question").strip()
             answer = parsed.group("answer").strip()
             rationale = parsed.group("rationale").strip()
         else:
             parsed = re.search(question_answer, model_output)
+            if parsed is None:
+                raise ParseModelOutputError(model_output)
+
             question = parsed.group("question").strip()
             answer = parsed.group("answer").strip()
             rationale = None
@@ -168,6 +173,10 @@ class VQARecord:
 
 
 class AmbiguousBooleanAnswerError(Exception):
+    pass
+
+
+class ParseModelOutputError(Exception):
     pass
 
 
@@ -350,6 +359,14 @@ def main(args, config):
                     )
                     record.question_id = idx
                     record.gen_logprob = lp
+                except ParseModelOutputError:
+                    logger.warning(
+                        "Failed to parse output %s into question-answer pair for image %s",
+                        model_output,
+                        image_path,
+                    )
+                    failed_parses += 1
+                    continue
                 except Exception as e:
                     if isinstance(e, KeyboardInterrupt):
                         raise e

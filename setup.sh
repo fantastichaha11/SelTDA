@@ -53,14 +53,22 @@ conda activate "${ENV_NAME}"
 # Tránh pip lấy package từ ~/.local (gây xung đột torch/transformers)
 export PYTHONNOUSERSITE=1
 
-echo "Installing PyTorch + torchvision (CUDA 12.6)"
+if ! python -m pip --version &>/dev/null; then
+    echo "Installing pip into conda environment"
+    conda install -y -n "${ENV_NAME}" pip
+fi
 
-pip install torch torchvision \
-    --index-url https://download.pytorch.org/whl/cu126
+echo "Installing PyTorch + torchvision (CUDA 13.0 — required for Blackwell sm_120)"
+
+python -m pip install torch torchvision \
+    --index-url https://download.pytorch.org/whl/cu130
 
 echo "Installing requirements"
 
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+
+# torch may pull a newer numpy; restore the pinned version from requirements.txt
+python -m pip install numpy==1.23.1
 
 echo "Done!"
 echo "Activate with:"

@@ -39,16 +39,22 @@ def _resolve_image(image_root: Path, image_field: str) -> Path:
     return image_root / image_field
 
 
+def _scores(record: dict) -> dict:
+    if record.get("scores") is None:
+        record["scores"] = {}
+    return record["scores"]
+
+
 def _run_gate_conf(records, config) -> float:
     if not config.gates.conf.enabled:
         for r in records:
-            r.setdefault("scores", {})["conf"] = 1.0
+            _scores(r)["conf"] = 1.0
         return float("-inf")
 
     raw = [score_confidence(r) for r in records]
     normalized = normalize_min_max(raw)
     for r, v in zip(records, normalized):
-        r.setdefault("scores", {})["conf"] = 0.0 if v is None else float(v)
+        _scores(r)["conf"] = 0.0 if v is None else float(v)
 
     return thresholds_from_quantile(
         [r["scores"]["conf"] for r in records],
@@ -59,7 +65,7 @@ def _run_gate_conf(records, config) -> float:
 def _run_gate_itm(records, image_root: Path, config) -> float:
     if not config.gates.itm.enabled:
         for r in records:
-            r.setdefault("scores", {})["itm"] = 1.0
+            _scores(r)["itm"] = 1.0
         return float("-inf")
 
     clip = OpenClipAdapter(
@@ -74,7 +80,7 @@ def _run_gate_itm(records, image_root: Path, config) -> float:
         except Exception as e:
             logger.warning("ITM scoring failed for %s: %s", r.get("image"), e)
             s = 0.0
-        r.setdefault("scores", {})["itm"] = float(s)
+        _scores(r)["itm"] = float(s)
 
     return thresholds_from_quantile(
         [r["scores"]["itm"] for r in records],
@@ -85,7 +91,7 @@ def _run_gate_itm(records, image_root: Path, config) -> float:
 def _run_gate_xcons(records, image_root: Path, config) -> float:
     if not config.gates.xcons.enabled:
         for r in records:
-            r.setdefault("scores", {})["xcons"] = 1.0
+            _scores(r)["xcons"] = 1.0
         return float("-inf")
 
     from sentence_transformers import SentenceTransformer
@@ -104,7 +110,7 @@ def _run_gate_xcons(records, image_root: Path, config) -> float:
         except Exception as e:
             logger.warning("X-cons scoring failed for %s: %s", r.get("image"), e)
             s = 0.0
-        r.setdefault("scores", {})["xcons"] = float(s)
+        _scores(r)["xcons"] = float(s)
 
     return thresholds_from_quantile(
         [r["scores"]["xcons"] for r in records],
