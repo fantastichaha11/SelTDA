@@ -160,4 +160,29 @@ else
     echo "Teacher checkpoint already exists: ${TEACHER_CKPT}"
 fi
 
+# =========================
+# Download student checkpoint (VQA, A-OKVQA SelTDA)
+# Google Drive: checkpoint_09.pth
+# https://drive.google.com/file/d/1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj/view?usp=drive_link
+# =========================
+
+STUDENT_DIR="${PROJECT_ROOT}/cache/student_weights"
+STUDENT_CKPT="${STUDENT_DIR}/checkpoint_09.pth"
+STUDENT_GDRIVE_FILE_ID="1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj"
+
+mkdir -p "${STUDENT_DIR}"
+
+if [ ! -f "${STUDENT_CKPT}" ]; then
+    echo "Downloading student checkpoint to ${STUDENT_CKPT}..."
+
+    if ! command -v gdown &> /dev/null; then
+        echo "Installing gdown..."
+        pip install -q gdown
+    fi
+
+    gdown "https://drive.google.com/uc?id=${STUDENT_GDRIVE_FILE_ID}" -O "${STUDENT_CKPT}"
+else
+    echo "Student checkpoint already exists: ${STUDENT_CKPT}"
+fi
+
 echo "All done!"

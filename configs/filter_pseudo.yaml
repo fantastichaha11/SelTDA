@@ -15,7 +15,7 @@ gates:
   xcons:
     enabled: true
     keep_top: 0.75
-    student_ckpt: cache/blip_pretrained.pth
+    student_ckpt: cache/student_weights/checkpoint_09.pth
     med_config: configs/med_config.json
     sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
     image_size: 384

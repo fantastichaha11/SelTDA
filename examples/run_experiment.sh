@@ -21,6 +21,8 @@
 #
 # Teacher checkpoint (downloaded by dataset.sh if missing):
 #   https://drive.google.com/file/d/19Y9oQNlYBTkoT4sYuUQWrEV9iUatPkdI/view
+# Student checkpoint — SelTDA A-OKVQA (downloaded by dataset.sh if missing):
+#   https://drive.google.com/file/d/1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj/view?usp=drive_link
 #
 # COCO unlabeled (downloaded by dataset.sh if missing):
 #   http://images.cocodataset.org/zips/unlabeled2017.zip
@@ -35,6 +37,7 @@ COCO_DIR="${DATASETS_DIR}/coco2017"
 COCO_UNLABELED="${COCO_DIR}/unlabeled2017"
 AOKVQA_DIR="${DATASETS_DIR}/aokvqa"
 TEACHER_CKPT="${PROJECT_ROOT}/cache/teacher_weights/checkpoint_04.pth"
+STUDENT_CKPT="${PROJECT_ROOT}/cache/student_weights/checkpoint_09.pth"
 OUTPUT_DIR="${PROJECT_ROOT}/cache/self_trained_weights"
 MED_CONFIG="${PROJECT_ROOT}/configs/med_config.json"
 
@@ -47,11 +50,15 @@ fi
 
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 
-echo "========== Step 0: Download datasets + teacher checkpoint =========="
+echo "========== Step 0: Download datasets + checkpoints =========="
 if [ "${SKIP_DATASET:-0}" != "1" ]; then
     bash "${PROJECT_ROOT}/dataset.sh"
 else
     echo "SKIP_DATASET=1 — skipping dataset.sh"
+fi
+
+if [ -f "${STUDENT_CKPT}" ]; then
+    echo "Published student checkpoint: ${STUDENT_CKPT}"
 fi
 
 if [ ! -f "${TEACHER_CKPT}" ]; then
