@@ -35,14 +35,54 @@ download_gdrive_file() {
     gdown "https://drive.google.com/uc?id=${file_id}" -O "${output_path}"
 }
 
+count_jpg_in_dir() {
+    local dir="$1"
+    find "${dir}" -maxdepth 1 -name '*.jpg' 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Return 0 when a COCO split is already on disk (marker, split folder, or flat layout).
+coco_split_already_present() {
+    local marker="$1"
+    local split_dir="$2"
+    local flat_min_jpgs="${3:-0}"
+
+    if [ -f "${marker}" ]; then
+        echo "[skip] ${split_dir} already extracted (${marker})"
+        return 0
+    fi
+
+    if [ -d "${split_dir}" ]; then
+        local folder_count
+        folder_count=$(count_jpg_in_dir "${split_dir}")
+        if [ "${folder_count}" -ge 1 ]; then
+            echo "[skip] ${split_dir}/ already present (${folder_count} images) — marking ${marker}"
+            touch "${marker}"
+            return 0
+        fi
+    fi
+
+    if [ "${flat_min_jpgs}" -gt 0 ]; then
+        local flat_count
+        flat_count=$(count_jpg_in_dir ".")
+        if [ "${flat_count}" -ge "${flat_min_jpgs}" ]; then
+            echo "[skip] ${split_dir} images already extracted flat in $(pwd) (${flat_count} images) — marking ${marker}"
+            touch "${marker}"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 download_coco_zip() {
     local url="$1"
     local zip_name="$2"
     local marker="$3"
     local unzip_mode="${4:-flat}"
+    local split_dir="${5:-}"
+    local flat_min_jpgs="${6:-0}"
 
-    if [ -f "${marker}" ]; then
-        echo "[skip] ${zip_name} already extracted (${marker})"
+    if coco_split_already_present "${marker}" "${split_dir}" "${flat_min_jpgs}"; then
         return 0
     fi
 
@@ -127,33 +167,37 @@ download_coco_zip \
     "http://images.cocodataset.org/zips/train2017.zip" \
     "train2017.zip" \
     ".train2017.complete" \
-    "flat"
+    "flat" \
+    "train2017" \
+    100000
 
 download_coco_zip \
     "http://images.cocodataset.org/zips/val2017.zip" \
     "val2017.zip" \
     ".val2017.complete" \
-    "flat"
+    "flat" \
+    "val2017" \
+    122000
 
 download_coco_zip \
     "http://images.cocodataset.org/zips/test2017.zip" \
     "test2017.zip" \
     ".test2017.complete" \
-    "flat"
+    "flat" \
+    "test2017" \
+    160000
 
 UNLABELED_MARKER=".unlabeled2017.complete"
-if [ -f "${UNLABELED_MARKER}" ] || {
-    [ -d "unlabeled2017" ] &&
-    [ -n "$(find unlabeled2017 -maxdepth 1 -name '*.jpg' -print -quit 2>/dev/null)" ]
-}; then
-    echo "[skip] COCO2017 unlabeled images already present"
-    touch "${UNLABELED_MARKER}"
+if coco_split_already_present "${UNLABELED_MARKER}" "unlabeled2017" 0; then
+    :
 else
     download_coco_zip \
         "http://images.cocodataset.org/zips/unlabeled2017.zip" \
         "unlabeled2017.zip" \
         "${UNLABELED_MARKER}" \
-        "folder"
+        "folder" \
+        "unlabeled2017" \
+        0
 fi
 
 echo "COCO extraction completed!"
