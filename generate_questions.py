@@ -140,6 +140,22 @@ class ParseModelOutputError(Exception):
     pass
 
 
+def image_key_from_path(image_path) -> str:
+    """Normalize a filesystem path to the BLIP ``parent/filename`` image key."""
+    p = Path(image_path)
+    return f"{p.parent.name}/{p.name}"
+
+
+def load_existing_output_records(output_path: Path) -> List[dict]:
+    if not output_path.exists():
+        return []
+    with open(output_path, "r") as f:
+        data = json.load(f)
+    if not isinstance(data, list):
+        raise ValueError(f"{output_path}: expected JSON list at top level")
+    return data
+
+
 class ImagesForGenerationDS(Dataset):
     def __init__(
         self,
@@ -147,6 +163,7 @@ class ImagesForGenerationDS(Dataset):
         transform=None,
         truncate_to: int = None,
         annotations_fname=None,
+        exclude_images=None,
     ):
         """Create a dataset of images for generation.
 
@@ -169,6 +186,7 @@ class ImagesForGenerationDS(Dataset):
         self.transform = transform
         self.truncate_to = truncate_to
         self.annotations_fname = annotations_fname
+        self.exclude_images = set(exclude_images or ())
 
         assert self.image_root.exists()
 
@@ -184,26 +202,33 @@ class ImagesForGenerationDS(Dataset):
         # Discover image paths by globbing the image root.
         if self.annotations_fname is None:
             logger.info("Globbing images from %s", self.image_root)
-            self.image_paths = []
-            for idx, image_path in enumerate(glob.iglob(f"{self.image_root}/*.jpg")):
-                if self.truncate_to is not None and idx >= self.truncate_to:
-                    break
-
-                self.image_paths.append(image_path)
-
-        # Discover image paths by reading the annotations file.
+            image_paths = list(glob.iglob(f"{self.image_root}/*.jpg"))
         else:
             logger.info(
                 "Reading images from annotations file %s", self.annotations_fname
             )
             with open(self.annotations_fname, "r") as f:
                 annotations = json.load(f)
-            self.image_paths = []
-            for idx, annotation in enumerate(annotations):
-                if self.truncate_to is not None and idx >= self.truncate_to:
-                    break
-                image_path = annotation["image"]
-                self.image_paths.append(str(self.image_root / image_path))
+            image_paths = [
+                str(self.image_root / annotation["image"]) for annotation in annotations
+            ]
+
+        self.image_paths = []
+        skipped = 0
+        for image_path in image_paths:
+            if image_key_from_path(image_path) in self.exclude_images:
+                skipped += 1
+                continue
+            self.image_paths.append(image_path)
+            if self.truncate_to is not None and len(self.image_paths) >= self.truncate_to:
+                break
+
+        if skipped:
+            logger.info(
+                "Skipped %d images already present in output (%d remaining)",
+                skipped,
+                len(self.image_paths),
+            )
 
     def __getitem__(self, index: int):
         try:
@@ -234,7 +259,7 @@ def build_model_from_config(config):
     return model
 
 
-def build_dataset_from_config(config):
+def build_dataset_from_config(config, exclude_images=None):
     transform = transforms.Compose(
         [
             transforms.Resize(
@@ -254,14 +279,26 @@ def build_dataset_from_config(config):
         transform=transform,
         truncate_to=config.truncate_to,
         annotations_fname=config.annotations,
+        exclude_images=exclude_images,
     )
 
 
 def main(args, config):
+    output_path = Path(config.output_folder) / config.output_annotations_name
+    existing_records = load_existing_output_records(output_path)
+    exclude_images = {record["image"] for record in existing_records}
+    if existing_records:
+        logger.info(
+            "Output %s exists: %d records (%d unique images); skipping those images",
+            output_path,
+            len(existing_records),
+            len(exclude_images),
+        )
+
     logger.info("Instantiating model from %s", config.pretrained)
     model = build_model_from_config(config)
     logger.info("Building dataset")
-    ds = build_dataset_from_config(config)
+    ds = build_dataset_from_config(config, exclude_images=exclude_images)
     logger.info("Dataset built with %d images", len(ds))
     loader = DataLoader(
         ds,
@@ -278,7 +315,7 @@ def main(args, config):
     if config.dry_run:
         logger.info("Dry run, not generating any questions")
 
-    all_records = []
+    new_records = []
     successful_parses = 0
     failed_parses = 0
     for batch_idx, batch in tqdm(enumerate(loader), total=len(loader)):
@@ -334,13 +371,13 @@ def main(args, config):
                     failed_parses += 1
                     continue
                 else:
-                    all_records.append(attrs.asdict(record))
+                    new_records.append(attrs.asdict(record))
                     successful_parses += 1
 
         truncate_limit = config.get("truncate_to_strict", None)
 
         if truncate_limit is not None:
-            if len(all_records) >= truncate_limit:
+            if len(existing_records) + len(new_records) >= truncate_limit:
                 break
 
         logger.info(
@@ -354,15 +391,18 @@ def main(args, config):
     # be set to True to avoid missing out on a large number of images that have no questions.
     # E.g. with only 3k images and 10k questions per image, training on 3k synthetic questions
     # in order will only get you ~300 unique images.
+    all_records = existing_records + new_records
     if config.shuffle:
         logger.info("Shuffling records")
         random.shuffle(all_records)
 
-    logger.info("Generated %d questions", len(all_records))
+    logger.info(
+        "Generated %d new questions (%d total)",
+        len(new_records),
+        len(all_records),
+    )
     logger.info("Writing questions to %s", config.output_annotations_name)
     try:
-        output_path = Path(config.output_folder) / config.output_annotations_name
-
         # Create parent directories if needed
         output_path.parent.mkdir(parents=True, exist_ok=True)
 

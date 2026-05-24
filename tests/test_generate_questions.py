@@ -1,5 +1,12 @@
-from generate_questions import VQARecord, AmbiguousBooleanAnswerError
+from generate_questions import (
+    VQARecord,
+    AmbiguousBooleanAnswerError,
+    ImagesForGenerationDS,
+    image_key_from_path,
+    load_existing_output_records,
+)
 import pytest
+from pathlib import Path
 
 
 def test_parsing_rationale():
@@ -69,3 +76,35 @@ def test_parsing_question_when_ambiguous_boolean_answer():
         record = VQARecord.build_from_raw_model_output(
             raw_model_output, "/fake/path/to/image.jpg", parse_rationale=False
         )
+
+
+def test_image_key_from_path():
+    assert image_key_from_path("/data/coco2017/unlabeled2017/000123.jpg") == (
+        "unlabeled2017/000123.jpg"
+    )
+
+
+def test_load_existing_output_records_missing(tmp_path):
+    assert load_existing_output_records(tmp_path / "missing.json") == []
+
+
+def test_load_existing_output_records_valid(tmp_path):
+    path = tmp_path / "synthetic_data_raw.json"
+    path.write_text('[{"image": "unlabeled2017/a.jpg"}]')
+    records = load_existing_output_records(path)
+    assert len(records) == 1
+    assert records[0]["image"] == "unlabeled2017/a.jpg"
+
+
+def test_images_for_generation_ds_skips_existing_images(tmp_path):
+    image_root = tmp_path / "unlabeled2017"
+    image_root.mkdir()
+    for name in ("a.jpg", "b.jpg", "c.jpg"):
+        (image_root / name).write_bytes(b"fake")
+
+    ds = ImagesForGenerationDS(
+        image_root,
+        exclude_images={"unlabeled2017/a.jpg", "unlabeled2017/c.jpg"},
+    )
+    assert len(ds) == 1
+    assert ds.image_paths == [str(image_root / "b.jpg")]
