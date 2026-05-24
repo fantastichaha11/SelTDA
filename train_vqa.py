@@ -33,6 +33,7 @@ from data import create_dataset, create_sampler, create_loader
 from data.vqa_dataset import vqa_collate_fn
 from data.utils import save_result
 import cli
+from checkpoint_utils import load_training_checkpoint, resolve_resume_checkpoint
 
 
 def train(model, data_loader, optimizer, epoch, device, wandb_logger=None):
@@ -195,9 +196,14 @@ def main(args, config):
         collate_fns=[vqa_collate_fn, None],
     )
     #### Model ####
+    resume_path = resolve_resume_checkpoint(args.resume, args.output_dir)
+    model_pretrained = resume_path if resume_path else config["pretrained"]
+    if resume_path:
+        print(f"Loading model weights for resume from {resume_path}")
+
     print("Creating model")
     model = blip_vqa(
-        pretrained=config["pretrained"],
+        pretrained=model_pretrained,
         image_size=config["image_size"],
         vit=config["vit"],
         vit_grad_ckpt=config["vit_grad_ckpt"],
@@ -217,12 +223,21 @@ def main(args, config):
         weight_decay=config["weight_decay"],
     )
 
+    start_epoch = 0
+    if resume_path and not args.evaluate:
+        start_epoch = load_training_checkpoint(resume_path, optimizer)
+
     best = 0
     best_epoch = 0
 
     print("Start training")
     start_time = time.time()
-    epochs = list(range(0, config.max_epoch))
+    epochs = list(range(start_epoch, config.max_epoch))
+    if start_epoch >= config.max_epoch and not args.evaluate:
+        print(
+            f"Checkpoint epoch {start_epoch - 1} >= max_epoch {config.max_epoch}; "
+            "skipping training and running evaluation only."
+        )
     for epoch in epochs:
         if not args.evaluate:
             if args.distributed:

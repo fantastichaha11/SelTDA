@@ -18,6 +18,8 @@
 #   TRUNCATE_GENERATE=N     limit unlabeled images during generation (debug)
 #   FILTER_KEEP_TOP=0.75    quantile keep ratio per gate (default 0.75)
 #   NUM_GPUS=1              GPUs for train_vqa.py
+#   RESUME=auto             resume training from latest checkpoint in OUTPUT_DIR
+#   RESUME=path/to/checkpoint_05.pth
 #
 # Teacher checkpoint (downloaded by dataset.sh if missing):
 #   https://drive.google.com/file/d/19Y9oQNlYBTkoT4sYuUQWrEV9iUatPkdI/view
@@ -148,15 +150,21 @@ if [ "${SKIP_TRAIN:-0}" = "1" ]; then
 fi
 
 echo "========== Step 4: Self-train student (train + filtered synthetic) =========="
-python -m torch.distributed.run --nproc_per_node="${NUM_GPUS}" train_vqa.py \
-    --output_dir="${OUTPUT_DIR}" \
-    --config configs/aokvqa.yaml \
-    --overrides \
-        "vqa_root='${COCO_DIR}'" \
-        "ann_root='${AOKVQA_DIR}'" \
-        "train_files=[train,synthetic_data]" \
-        "truncate_train_dataset_to=34000" \
+TRAIN_CMD=(
+    python -m torch.distributed.run --nproc_per_node="${NUM_GPUS}" train_vqa.py
+    --output_dir="${OUTPUT_DIR}"
+    --config configs/aokvqa.yaml
+    --overrides
+        "vqa_root='${COCO_DIR}'"
+        "ann_root='${AOKVQA_DIR}'"
+        "train_files=[train,synthetic_data]"
+        "truncate_train_dataset_to=34000"
         "wandb=false"
+)
+if [ -n "${RESUME:-}" ]; then
+    TRAIN_CMD+=(--resume "${RESUME}")
+fi
+"${TRAIN_CMD[@]}"
 
 echo "========== Experiment finished =========="
 echo "Filtered synthetic: ${AOKVQA_DIR}/synthetic_data.json"

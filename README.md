@@ -101,4 +101,16 @@ python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
     "train_files=[train,synthetic_data]" \
     "truncate_train_dataset_to=34000" \
     "wandb=false"
+
+# Resume after interruption (latest checkpoint in output_dir):
+# python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
+#   --output_dir=cache/self_trained_weights \
+#   --config configs/aokvqa.yaml \
+#   --resume auto \
+#   --overrides \
+#     "vqa_root='$(pwd)/datasets/coco2017'" \
+#     "ann_root='$(pwd)/datasets/aokvqa'" \
+#     "train_files=[train,synthetic_data]" \
+#     "truncate_train_dataset_to=34000" \
+#     "wandb=false"
 ```

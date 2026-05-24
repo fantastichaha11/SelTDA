@@ -16,6 +16,16 @@ def make_parser(default_config_path: str) -> ArgumentParser:
         "--output_dir", default="/net/acadia4a/data/zkhan/mithril/sandbox"
     )
     parser.add_argument("--evaluate", action="store_true")
+    parser.add_argument(
+        "--resume",
+        nargs="?",
+        const="auto",
+        default=None,
+        help=(
+            "Resume training from a checkpoint (.pth). "
+            "Pass a path, or use --resume alone to pick the latest checkpoint in output_dir."
+        ),
+    )
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument(
