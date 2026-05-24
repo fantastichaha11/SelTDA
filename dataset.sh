@@ -185,4 +185,43 @@ else
     echo "Student checkpoint already exists: ${STUDENT_CKPT}"
 fi
 
+# =========================
+# Download published synthetic data (A-OKVQA)
+# synthetic_data_raw.json:
+# https://drive.google.com/file/d/1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf/view?usp=drive_link
+# synthetic_data_filter.json (saved as synthetic_data.json for train_vqa.py):
+# https://drive.google.com/file/d/1X_ok9p-VDT4h_4zEtLXLi7VTC5xGtSEj/view?usp=drive_link
+# =========================
+
+SYNTHETIC_RAW="${AOKVQA_DIR}/synthetic_data_raw.json"
+SYNTHETIC_FILTERED="${AOKVQA_DIR}/synthetic_data.json"
+SYNTHETIC_RAW_GDRIVE_ID="1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf"
+SYNTHETIC_FILTERED_GDRIVE_ID="1X_ok9p-VDT4h_4zEtLXLi7VTC5xGtSEj"
+
+if [ ! -f "${SYNTHETIC_RAW}" ]; then
+    echo "Downloading synthetic_data_raw.json to ${SYNTHETIC_RAW}..."
+
+    if ! command -v gdown &> /dev/null; then
+        echo "Installing gdown..."
+        pip install -q gdown
+    fi
+
+    gdown "https://drive.google.com/uc?id=${SYNTHETIC_RAW_GDRIVE_ID}" -O "${SYNTHETIC_RAW}"
+else
+    echo "Synthetic raw already exists: ${SYNTHETIC_RAW}"
+fi
+
+if [ ! -f "${SYNTHETIC_FILTERED}" ]; then
+    echo "Downloading synthetic_data_filter.json to ${SYNTHETIC_FILTERED}..."
+
+    if ! command -v gdown &> /dev/null; then
+        echo "Installing gdown..."
+        pip install -q gdown
+    fi
+
+    gdown "https://drive.google.com/uc?id=${SYNTHETIC_FILTERED_GDRIVE_ID}" -O "${SYNTHETIC_FILTERED}"
+else
+    echo "Synthetic filtered already exists: ${SYNTHETIC_FILTERED}"
+fi
+
 echo "All done!"

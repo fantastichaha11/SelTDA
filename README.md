@@ -55,3 +55,50 @@ See the `examples/` directory to see examples of:
 
 ## Acknowledgements
 This code is heavily based on [salesforce/BLIP](https://github.com/salesforce/BLIP).
+
+```bash
+cd ~/SelTDA
+conda activate vqa
+export PYTHONNOUSERSITE=1
+
+# 1) Data + checkpoint
+bash dataset.sh
+
+# 2) Convert A-OKVQA
+python convert_aokvqa.py \
+  --config configs/aokvqa.yaml \
+  --overrides "vqa_root='$(pwd)/datasets/coco2017'" "ann_root='$(pwd)/datasets/aokvqa'"
+
+# 3) Generate pseudo-QA từ unlabeled COCO
+python generate_questions.py \
+  --config configs/generate_questions_coco.yaml \
+  --overrides \
+    "image_folder='$(pwd)/datasets/coco2017/unlabeled2017'" \
+    "output_folder='$(pwd)/datasets/aokvqa'" \
+    "pretrained='$(pwd)/cache/teacher_weights/checkpoint_04.pth'" \
+    "output_annotations_name=synthetic_data_raw.json" \
+    "multimodal_encoder_decoder_config='$(pwd)/configs/med_config.json'" \
+    "questions_per_image=2" \
+    "max_length=40" \
+    "batch_size=16"
+
+# 4) Filter
+python filter_pseudo.py \
+  --config configs/filter_pseudo.yaml \
+  --overrides \
+    "input='$(pwd)/datasets/aokvqa/synthetic_data_raw.json'" \
+    "image_root='$(pwd)/datasets/coco2017'" \
+    "output='$(pwd)/datasets/aokvqa/synthetic_data.json'" \
+    "report='$(pwd)/datasets/aokvqa/filter_report.json'"
+
+# 5) Train student
+python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
+  --output_dir=cache/self_trained_weights \
+  --config configs/aokvqa.yaml \
+  --overrides \
+    "vqa_root='$(pwd)/datasets/coco2017'" \
+    "ann_root='$(pwd)/datasets/aokvqa'" \
+    "train_files=[train,synthetic_data]" \
+    "truncate_train_dataset_to=34000" \
+    "wandb=false"
+```
