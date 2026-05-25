@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report: Cải tiến Filter QA và hướng mở rộng cho SelTDA</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --text: #e7ecff;
+      --muted: #a6b1d8;
+      --accent: #6ea8fe;
+      --ok: #3ddc97;
+      --warn: #ffd166;
+      --border: #2a3566;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1060px;
+      margin: 24px auto 48px;
+      padding: 0 20px;
+    }
+    h1, h2, h3 {
+      line-height: 1.25;
+      margin-top: 0;
+    }
+    h1 { font-size: 30px; margin-bottom: 8px; }
+    h2 { font-size: 22px; margin: 26px 0 12px; }
+    h3 { font-size: 18px; margin: 18px 0 8px; }
+    p, li { color: var(--text); }
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 0;
+    }
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 12px;
+      margin-right: 8px;
+      color: var(--muted);
+    }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    code {
+      background: #1a2242;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1px 6px;
+      color: #d7e5ff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      vertical-align: top;
+    }
+    th {
+      text-align: left;
+      background: #1b264d;
+    }
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    ul { margin-top: 8px; }
+    .footer-note {
+      margin-top: 30px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    pre {
+      background: #0f1630;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #d7e5ff;
+    }
+    .formula {
+      background: #0f1630;
+      border-left: 3px solid var(--accent);
+      padding: 10px 14px;
+      margin: 10px 0;
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Research Report: Cải tiến Filter QA và hướng mở rộng cho SelTDA</h1>
+    <div class="meta">
+      <span class="badge">Date: 2026-05-25</span>
+      <span class="badge">Nguồn: Perplexity (web-grounded)</span>
+      <span class="badge">Phạm vi: 2023-2026</span>
+    </div>
+
+    <div class="card">
+      <h2>1) Bối cảnh nhanh</h2>
+      <p>
+        Theo paper SelTDA CVPR 2023, nhiễu pseudo-QA là một hạn chế quan trọng và tác giả đề xuất các hướng như
+        fact-checking, self-reasoning, CoT để nâng chất lượng cặp sinh tự động. Trong code/spec hiện tại của repo,
+        pipeline đã đi đúng hướng với 3 gate <code>conf + itm + xcons</code> và cơ chế cascade.
+      </p>
+      <p>
+        Mục tiêu của report này: tìm các nâng cấp có bằng chứng gần đây để cải thiện step filtering hiện tại
+        và đề xuất hướng paper tiếp theo ngoài filtering.
+      </p>
+    </div>
+
+    <h2>2) Phát hiện chính từ Perplexity (evidence-backed)</h2>
+
+    <div class="card">
+      <h3>2.1 Calibration + Uncertainty Filtering đáng ưu tiên số 1</h3>
+      <ul>
+        <li>Điểm confidence thô thường bị over-confident; cần calibration trước khi threshold.</li>
+        <li>Các hướng thực dụng: temperature scaling, entropy/margin, agreement-frequency giữa nhiều view/prompt.</li>
+        <li>Khi domain shift mạnh, quality của filter phụ thuộc chặt vào calibration hơn là confidence tuyệt đối.</li>
+      </ul>
+      <p class="small">
+        Nguồn tiêu biểu:
+        <a href="http://arxiv.org/abs/2309.15963" target="_blank" rel="noopener">Uncertainty-Aware Pseudo-Label Selection (2023)</a>,
+        <a href="https://www.arxiv.org/abs/2406.00980" target="_blank" rel="noopener">Selectively Answering Visual Questions (2024)</a>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Phụ lục A — Calibration + Uncertainty Filtering (chi tiết cho SelTDA)</h2>
+
+      <h3>A.1 Khái niệm</h3>
+      <p>
+        <b>Calibration</b> là bước “nắn” điểm số của model sao cho <em>confidence phản ánh đúng xác suất đúng</em>.
+        Ví dụ: trong 100 mẫu model chấm 0.9, khoảng 90 mẫu thực sự đúng — không phải chỉ 60–70 như khi chưa calibrate.
+      </p>
+      <p>
+        <b>Uncertainty filtering</b> là bước lọc pseudo-label dựa trên <em>độ bất định</em>: giữ mẫu chắc chắn, bỏ hoặc hoãn mẫu mơ hồ.
+        Hai bước đi cùng nhau vì lọc bằng confidence thô dễ giữ nhầm mẫu sai khi model overconfident.
+      </p>
+
+      <h3>A.2 Công thức</h3>
+      <p><b>Gate 1 hiện tại (teacher log-likelihood):</b></p>
+      <div class="formula">
+        s<sub>conf</sub> = (1/|T|) Σ<sub>t</sub> log p<sub>θ</sub>(T<sub>t</sub> | T<sub>&lt;t</sub>, I)
+        &nbsp;→&nbsp; chuẩn hoá min-max: s̃<sub>conf</sub> = (s<sub>conf</sub> − min) / (max − min)
+      </div>
+
+      <p><b>Temperature scaling</b> (fit scalar T trên validation nhỏ, tối thiểu NLL):</p>
+      <div class="formula">
+        p̂(a) = softmax(z / T), &nbsp; T &gt; 0
+      </div>
+      <p class="small">Với open-ended VQA, z có thể lấy từ mean log-prob token hoặc logit answer cuối; T thường ∈ [0.5, 5].</p>
+
+      <p><b>Entropy uncertainty</b> (càng cao = càng không chắc):</p>
+      <div class="formula">
+        H(p) = − Σ<sub>a</sub> p(a) log p(a), &nbsp;
+        u = H(p) / log |A| &nbsp;∈ [0, 1]
+      </div>
+
+      <p><b>Margin uncertainty</b> (khoảng cách top-1 vs top-2):</p>
+      <div class="formula">
+        m = p<sub>(1)</sub> − p<sub>(2)</sub>, &nbsp; u = 1 − m
+      </div>
+
+      <p><b>Quy tắc lọc sau calibration:</b></p>
+      <div class="formula">
+        keep nếu p̂<sub>max</sub> ≥ τ &nbsp; và &nbsp; u ≤ u<sub>max</sub>
+        <br />
+        (hoặc quantile: giữ top-q% theo s̃<sub>conf</sub> như spec hiện tại)
+      </div>
+
+      <p><b>Soft weighting</b> (thay hard drop, tương thích Phase 2 spec):</p>
+      <div class="formula">
+        w = exp(−u / σ) &nbsp; hoặc &nbsp; w = sigmoid((s̃<sub>conf</sub> − τ) / s)
+      </div>
+      <p class="small">Duplicate sampling theo w thay vì sửa loss trong <code>train_vqa.py</code>.</p>
+
+      <h3>A.2.1 Ý nghĩa từng thành phần và công thức</h3>
+
+      <h4>1) Confidence teacher — <code>s_conf</code> và <code>s̃_conf</code></h4>
+      <table>
+        <thead><tr><th>Ký hiệu</th><th>Là gì</th><th>Ý nghĩa trong SelTDA</th></tr></thead>
+        <tbody>
+          <tr><td><code>I</code></td><td>Image (ảnh)</td><td>Ảnh không nhãn dùng để sinh pseudo-QA.</td></tr>
+          <tr><td><code>T</code></td><td>Chuỗi token teacher sinh ra</td><td>Thường dạng <code>"Question: …? Answer: …."</code> — cả câu hỏi + đáp án gộp một chuỗi.</td></tr>
+          <tr><td><code>|T|</code></td><td>Độ dài chuỗi (số token)</td><td>Chia trung bình để score không phụ thuộc câu dài/ngắn.</td></tr>
+          <tr><td><code>T_t</code></td><td>Token thứ t</td><td>Ký tự/từ mà decoder phải dự đoán ở bước t.</td></tr>
+          <tr><td><code>T_{&lt;t}</code></td><td>Các token trước t</td><td>Ngữ cảnh đã sinh; mô hình dự đoán token tiếp theo có điều kiện.</td></tr>
+          <tr><td><code>θ</code></td><td>Tham số teacher (VQG)</td><td>Model đã fine-tune để sinh QA từ ảnh.</td></tr>
+          <tr><td><code>p_θ(T_t | T_{&lt;t}, I)</code></td><td>Xác suất token đúng</td><td>Teacher “tự tin” đến mức nào với từng từ trong chuỗi vừa sample.</td></tr>
+          <tr><td><code>log p_θ(·)</code></td><td>Log-likelihood</td><td>Luôn ≤ 0; càng gần 0 (ít âm) = càng tự tin. Đây là <code>gen_logprob</code> trong JSON.</td></tr>
+          <tr><td><code>s_conf</code></td><td>Trung bình log-prob</td><td>Điểm thô: teacher có “thoải mái” với toàn bộ cặp QA vừa sinh không.</td></tr>
+          <tr><td><code>min</code>, <code>max</code></td><td>Min/max trên cả pool</td><td>Chuẩn hoá theo batch/pool pseudo hiện tại, không phải giá trị tuyệt đối cố định.</td></tr>
+          <tr><td><code>s̃_conf</code></td><td>Confidence đã chuẩn hoá</td><td>Nằm trong [0, 1]; dùng so sánh giữa các mẫu và đặt ngưỡng quantile (top 75%, …).</td></tr>
+        </tbody>
+      </table>
+      <p><b>Ý nghĩa công thức:</b> Nếu teacher sinh câu trả lời mà bản thân nó cũng gán xác suất thấp cho từng token → có thể hallucination hoặc câu không khớp ảnh. Đây là gate “tự tin nội bộ” của teacher, chưa hỏi student hay CLIP.</p>
+
+      <h4>2) Temperature scaling — <code>p̂(a) = softmax(z / T)</code></h4>
+      <table>
+        <thead><tr><th>Ký hiệu</th><th>Là gì</th><th>Ý nghĩa</th></tr></thead>
+        <tbody>
+          <tr><td><code>a</code></td><td>Một lựa chọn đáp án / lớp</td><td>VQA closed-set: mỗi ứng viên trong tập A. Open-ended: có thể coi bucket token hoặc proxy score.</td></tr>
+          <tr><td><code>z</code></td><td>Logit (điểm thô trước softmax)</td><td>Đầu ra chưa qua softmax; magnitude phản ánh “độ mạnh” nhưng chưa calibrated.</td></tr>
+          <tr><td><code>T</code></td><td>Nhiệt độ (scalar &gt; 0)</td><td><b>Khác</b> chuỗi token T ở trên — đây là hằng số calibration học từ val.</td></tr>
+          <tr><td><code>softmax(z/T)</code></td><td>Phân phối xác suất sau calibrate</td><td>T &gt; 1 → phân phối “mềm” hơn (ít overconfident). T &lt; 1 → nhọn hơn.</td></tr>
+          <tr><td><code>p̂(a)</code></td><td>Xác suất đã calibrate</td><td>Dùng làm confidence đáng tin hơn khi đặt ngưỡng τ.</td></tr>
+        </tbody>
+      </table>
+      <p><b>Ý nghĩa công thức:</b> Model thường báo 0.95 trong khi thực tế chỉ đúng 70%. Fit T trên tập có nhãn để “kéo” phân phối cho khớp tần suất đúng — bước calibration, chưa phải lọc.</p>
+
+      <h4>3) Entropy uncertainty — <code>H(p)</code> và <code>u</code></h4>
+      <table>
+        <thead><tr><th>Ký hiệu</th><th>Là gì</th><th>Ý nghĩa</th></tr></thead>
+        <tbody>
+          <tr><td><code>p(a)</code></td><td>Xác suất đáp án a</td><td>Sau softmax (có thể đã qua temperature).</td></tr>
+          <tr><td><code>H(p)</code></td><td>Entropy Shannon</td><td>Đo “độ lan” của phân phối: một đáp án chiếm gần 100% → H thấp; nhiều đáp án ngang nhau → H cao.</td></tr>
+          <tr><td><code>|A|</code></td><td>Số lượng ứng viên đáp án</td><td>Chuẩn hoá entropy về [0,1]: u=0 là chắc tuyệt đối, u=1 là hoàn toàn mơ hồ (phân phối đều).</td></tr>
+          <tr><td><code>u</code></td><td>Uncertainty chuẩn hoá</td><td>Càng cao → càng không nên giữ làm pseudo-label cứng.</td></tr>
+        </tbody>
+      </table>
+      <p><b>Ý nghĩa công thức:</b> Không chỉ hỏi “đáp án top-1 cao không” mà hỏi “model có đang phân vân giữa nhiều lựa chọn không”. Hai mẫu cùng p_max=0.6 nhưng một mẫu entropy cao (0.4+0.35+0.25) rủi ro hơn mẫu entropy thấp (0.6+0.1+0.1).</p>
+
+      <h4>4) Margin uncertainty — <code>m</code> và <code>u = 1 − m</code></h4>
+      <table>
+        <thead><tr><th>Ký hiệu</th><th>Là gì</th><th>Ý nghĩa</th></tr></thead>
+        <tbody>
+          <tr><td><code>p_(1)</code></td><td>Xác suất đáp án hạng 1</td><td>Ứng viên mạnh nhất.</td></tr>
+          <tr><td><code>p_(2)</code></td><td>Xác suất đáp án hạng 2</td><td>Ứng viên á sát nhất.</td></tr>
+          <tr><td><code>m</code></td><td>Margin (khe cách)</td><td>m lớn → top-1 vượt trội → ít bất định. m nhỏ → tranh chấp giữa 2 đáp án.</td></tr>
+          <tr><td><code>u = 1 − m</code></td><td>Uncertainty từ margin</td><td>Biến margin thành “độ không chắc”: càng sát nhau càng cao u.</td></tr>
+        </tbody>
+      </table>
+      <p><b>So với entropy:</b> Margin nhẹ, dễ tính; entropy nhìn cả phân phối. Có thể dùng một trong hai hoặc max(entropy_u, margin_u).</p>
+
+      <h4>5) Quy tắc lọc — <code>keep</code>, <code>τ</code>, <code>u_max</code>, quantile</h4>
+      <table>
+        <thead><tr><th>Ký hiệu</th><th>Là gì</th><th>Ý nghĩa</th></tr></thead>
+        <tbody>
+          <tr><td><code>p̂_max</code></td><td>max_a p̂(a)</td><td>Confidence cao nhất sau calibration.</td></tr>
+          <tr><td><code>τ</code> (tau)</td><td>Ngưỡng confidence tối thiểu</td><td>Dưới τ → loại (hoặc giảm trọng số).</td></tr>
+          <tr><td><code>u_max</code></td><td>Ngưỡng uncertainty tối đa</td><td>Trên u_max → loại: model quá phân vân.</td></tr>
+          <tr><td><code>keep</code></td><td>Quyết định giữ mẫu</td><td>Phải thỏa <b>cả</b> tự tin đủ cao <b>và</b> bất định đủ thấp.</td></tr>
+          <tr><td><code>q</code> (quantile)</td><td>Phần trăm giữ lại</td><td>Ví dụ q=0.75: giữ 75% mẫu có s̃_conf cao nhất trong pool — không cần chọn τ tuyệt đối.</td></tr>
+        </tbody>
+      </table>
+      <p><b>Ý nghĩa:</b> Calibration cho τ/u có ý nghĩa; quantile (như <code>keep_top=0.75</code> trong spec) ổn khi phân phối score thay đổi giữa A-OKVQA và PathVQA.</p>
+
+      <h4>6) Soft weighting — <code>w</code>, <code>σ</code>, <code>s</code></h4>
+      <table>
+        <thead><tr><th>Ký hiệu</th><th>Là gì</th><th>Ý nghĩa</th></tr></thead>
+        <tbody>
+          <tr><td><code>w</code></td><td>Trọng số mẫu</td><td>Thay vì drop 0/1: mẫu tốt w≈1, mẫu nghi ngờ w nhỏ. Trong SelTDA Phase 2: duplicate mẫu ∝ w.</td></tr>
+          <tr><td><code>σ</code> (sigma)</td><td>Độ “mềm” của hàm exp</td><td>σ lớn → w giảm chậm khi u tăng; σ nhỏ → phạt nặng mẫu hơi không chắc.</td></tr>
+          <tr><td><code>sigmoid((s̃_conf − τ)/s)</code></td><td>Trọng số theo confidence</td><td><code>s</code> là scale: s nhỏ → chuyển từ 0→1 gắt quanh τ; s lớn → chuyển mềm.</td></tr>
+        </tbody>
+      </table>
+      <p><b>Ý nghĩa:</b> Giữ được mẫu “khó nhưng có thể đúng” với ảnh hưởng nhỏ lên training, thay vì loại hẳn.</p>
+
+      <h4>7) Metric đánh giá (cuối pseudo-code)</h4>
+      <ul>
+        <li><b>ECE:</b> Chia mẫu theo khoảng confidence (bin), so sánh accuracy thực tế vs confidence trung bình trong bin. ECE cao = chưa calibrate.</li>
+        <li><b>Brier:</b> Trung bình (nhãn đúng 0/1 − p dự đoán)² — vừa calibration vừa độ sharp.</li>
+        <li><b>Risk–coverage:</b> Chỉ tính accuracy trên mẫu được “trả lời/giữ”; khi lọc chặt coverage thấp nhưng risk (lỗi) có thể thấp hơn.</li>
+      </ul>
+
+      <h4>Luồng tổng thể (một dòng)</h4>
+      <p>
+        Teacher sinh QA → <code>s_conf</code> (tự tin nội bộ) → calibration (<code>T</code>) → <code>u</code> (bất định) →
+        kết hợp ITM + xcons → <code>keep</code> hoặc <code>w</code> → đưa vào <code>synthetic_data.json</code>.
+      </p>
+
+      <h3>A.3 Pseudo-code (bám <code>filter_pseudo.py</code>)</h3>
+      <pre>
+# --- Bước 0: pool pseudo-QA đã sinh (synthetic_data_raw.json) ---
+
+# --- Bước 1: CALIBRATION (một lần trên val nhỏ ~200–500 mẫu) ---
+# Fit T để min NLL trên nhãn thật (hoặc human-judge trên subset pseudo)
+T = fit_temperature_scaling(val_records, model=teacher)
+
+# --- Bước 2: SCORING mỗi record ---
+for record in pool:
+    s_conf_raw = record["gen_logprob"]           # Gate 1 (đã có)
+    s_itm      = score_clip_itm(record, image)   # Gate 2 (đã có)
+    s_xcons    = score_xcons(record, image)      # Gate 3 (đã có)
+
+    # Optional: multi-view agreement (nâng cấp đề xuất)
+    answers = [teacher.generate(image, seed=s) for s in seeds]
+    s_agree = fraction_mode(answers)             # 1.0 nếu tất cả giống nhau
+
+    # Calibration trên confidence
+    p_cal = apply_temperature(s_conf_raw, T)
+    u     = entropy(p_cal)                         # hoặc 1 - margin
+
+    record["scores"] = {
+        "conf": s_conf_norm, "itm": s_itm, "xcons": s_xcons,
+        "agree": s_agree, "uncertainty": u,
+    }
+
+# --- Bước 3: UNCERTAINTY FILTERING ---
+# Cascade (spec hiện tại) + thêm điều kiện uncertainty
+def apply_gates_calibrated(record, thresholds):
+    if record["scores"]["conf"] &lt; thresholds.tau_conf:
+        return False, "conf"
+    if record["scores"]["uncertainty"] &gt; thresholds.u_max:
+        return False, "uncertainty"
+    if record["scores"]["itm"] &lt; thresholds.tau_itm:
+        return False, "itm"
+    if record["scores"]["xcons"] &lt; thresholds.tau_xcons:
+        return False, "xcons"
+    return True, "kept"
+
+# --- Bước 4 (tuỳ chọn): SOFT WEIGHT thay vì drop ---
+# w = exp(-record["scores"]["uncertainty"] / sigma)
+# duplicate record ceil(w * K) lần vào synthetic_data.json
+
+# --- Bước 5: ĐÁNH GIÁ calibration ---
+# ECE: chia confidence thành bins, so |acc_bin - conf_bin|
+# Brier: mean (y - p)^2
+      </pre>
+
+      <h3>A.4 Chỗ gắn vào repo hiện tại</h3>
+      <table>
+        <thead>
+          <tr><th>Thành phần</th><th>File</th><th>Thay đổi</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Score + normalize</td>
+            <td><code>filtering/scorers.py</code></td>
+            <td>Thêm <code>apply_temperature</code>, <code>entropy_uncertainty</code></td>
+          </tr>
+          <tr>
+            <td>Threshold / cascade</td>
+            <td><code>filtering/gates.py</code></td>
+            <td>Thêm gate <code>uncertainty</code> hoặc kết hợp vào <code>conf</code></td>
+          </tr>
+          <tr>
+            <td>Fit T offline</td>
+            <td>script mới hoặc flag trong <code>filter_pseudo.py</code></td>
+            <td><code>--calibrate_on=val.json</code></td>
+          </tr>
+          <tr>
+            <td>Metrics</td>
+            <td><code>filtering/report.py</code></td>
+            <td>Histogram ECE, risk-coverage curve</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>A.5 Metric đánh giá (cho luận văn)</h3>
+      <ul>
+        <li><b>ECE</b> (Expected Calibration Error): càng thấp càng tốt; so sánh trước/sau temperature scaling.</li>
+        <li><b>Filter precision/recall</b>: so với human-judge trên 100 kept + 100 dropped (§5.4 spec).</li>
+        <li><b>Risk–coverage</b>: accuracy trên subset được trả lời vs % pool giữ lại (selective prediction).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>2.2 Hard-filter sang Soft-weight/Curriculum để giảm mất dữ liệu tốt</h3>
+      <ul>
+        <li>Hard cut (keep/drop) dễ bỏ nhầm sample khó nhưng đúng.</li>
+        <li>Literature review về pseudo-labeling gợi ý self-paced/curriculum và dynamic threshold là xu hướng ổn định hơn.</li>
+        <li>Thực tế nên kết hợp: high-confidence trước, sau đó nới dần ngưỡng + gán trọng số mềm.</li>
+      </ul>
+      <p class="small">
+        Nguồn:
+        <a href="https://arxiv.org/html/2408.07221v3" target="_blank" rel="noopener">A Review of Pseudo-Labeling for Computer Vision (2024)</a>,
+        <a href="https://arxiv.org/pdf/2001.06001.pdf" target="_blank" rel="noopener">Curriculum Labeling</a>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>2.3 Agreement/Consistency là tín hiệu bổ sung mạnh cho gate hiện tại</h3>
+      <ul>
+        <li>Thay vì một lần generate, nên tạo multi-view (augment/prompt/temperature) rồi đo độ nhất quán.</li>
+        <li>Tín hiệu disagreement thường bắt lỗi hallucination hoặc sample bất định tốt hơn confidence đơn lẻ.</li>
+        <li>Phù hợp với kiến trúc hiện tại vì chỉ thêm scoring head, không phải đổi backbone.</li>
+      </ul>
+      <p class="small">
+        Nguồn:
+        <a href="https://openaccess.thecvf.com/content/WACV2025/papers/Xu_Cross_Image_Feature_Perturbation_with_Pseudo_Label_Fusion_for_Semi-Supervised_WACV_2025_paper.pdf" target="_blank" rel="noopener">WACV 2025 (uncertainty-based fusion)</a>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>2.4 Hướng ngoài filtering: Retrieval-Augmented VQA đang lên mạnh</h3>
+      <ul>
+        <li>Đặc biệt hữu ích cho data-scarce + knowledge/domain-specific VQA (medical/pathology).</li>
+        <li>Nhiều công trình mới cho thấy RAG có thể tăng factuality lớn mà không cần full retraining nặng.</li>
+        <li>Điểm quan trọng: cần thêm bước lọc/chọn context retrieved để tránh kéo nhiễu mới vào answer.</li>
+      </ul>
+      <p class="small">
+        Nguồn:
+        <a href="https://arxiv.org/abs/2410.13085" target="_blank" rel="noopener">MMed-RAG (ICLR 2025)</a>,
+        <a href="https://openaccess.thecvf.com/content/ICCV2025W/MRR%202025/papers/Madavan_Med-GRIM_Enhanced_Zero-Shot_Medical_VQA_using_prompt-embedded_Multimodal_Graph_RAG_ICCVW_2025_paper.pdf" target="_blank" rel="noopener">Med-GRIM (ICCVW 2025)</a>.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>2.5 PEFT (LoRA/Adapter/DoRA) là đường nâng cấp cost-effective</h3>
+      <ul>
+        <li>Cho data-scarce, PEFT giúp giảm overfit và giảm compute so với full finetune.</li>
+        <li>Nhiều benchmark VLM/VQA gần đây cho thấy LoRA/Adapter thường cho trade-off tốt.</li>
+        <li>Hợp với hạ tầng 1 GPU và không phá baseline train loop lớn.</li>
+      </ul>
+      <p class="small">
+        Nguồn:
+        <a href="https://arxiv.org/html/2403.08433v2/" target="_blank" rel="noopener">Empirical Study of PEFT on VLP (2024)</a>,
+        <a href="https://openreview.net/pdf?id=f5H8WGLQm5" target="_blank" rel="noopener">UniAdapter (ICLR 2024)</a>.
+      </p>
+    </div>
+
+    <h2>3) Đề xuất nâng cấp trực tiếp cho pipeline filter hiện tại</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Nâng cấp</th>
+            <th>Tác động kỳ vọng</th>
+            <th>Mức độ can thiệp code</th>
+            <th>Ưu tiên</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <b>Calibrated confidence gate</b><br />
+              Thêm temperature scaling + entropy/margin trong gate <code>conf</code>
+            </td>
+            <td>Giảm false-keep do confidence ảo</td>
+            <td>Thấp (chủ yếu ở <code>filtering/scorers.py</code>)</td>
+            <td><span class="ok">Rất cao</span></td>
+          </tr>
+          <tr>
+            <td>
+              <b>Multi-view consistency score</b><br />
+              Tạo 2-3 view và thêm <code>s_cons</code> dựa trên agreement
+            </td>
+            <td>Bắt nhiễu/hallucination tốt hơn score đơn</td>
+            <td>Trung bình (generate + scoring)</td>
+            <td><span class="ok">Cao</span></td>
+          </tr>
+          <tr>
+            <td>
+              <b>Soft weighting / curriculum</b><br />
+              Chuyển từ hard-cut hoàn toàn sang weighting
+            </td>
+            <td>Giữ thêm dữ liệu hữu ích, giảm loại nhầm</td>
+            <td>Trung bình (gate logic + sampling strategy)</td>
+            <td><span class="ok">Cao</span></td>
+          </tr>
+          <tr>
+            <td>
+              <b>Selective abstention bucket</b><br />
+              Tách nhóm uncertain để xử lý vòng sau thay vì drop
+            </td>
+            <td>Tăng coverage nhưng vẫn kiểm soát rủi ro</td>
+            <td>Thấp</td>
+            <td><span class="warn">Trung bình</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>4) Hướng mở rộng cho paper (ngoài filter QA)</h2>
+    <div class="card">
+      <h3>A. RAG cho domain-specific VQA (đề xuất mạnh cho PathVQA)</h3>
+      <ul>
+        <li>Xây KB y khoa ngắn gọn + retrieval theo entity/term lâm sàng.</li>
+        <li>Dùng gate relevance cho context trước khi answer.</li>
+        <li>So sánh: baseline SelTDA vs SelTDA+RAG vs SelTDA+RAG+filter.</li>
+      </ul>
+
+      <h3>B. PEFT thay full finetune ở teacher/student</h3>
+      <ul>
+        <li>Test LoRA/Adapter rank nhỏ để giảm chi phí và overfit.</li>
+        <li>Ablation theo vị trí gắn adapter (vision block, cross-modal, text decoder).</li>
+      </ul>
+
+      <h3>C. Test-time adaptation cho OOD split</h3>
+      <ul>
+        <li>Dùng entropy minimization + debias/self-supervision lúc test.</li>
+        <li>Đặc biệt hữu ích khi deployment gặp domain shift nhưng thiếu nhãn mới.</li>
+      </ul>
+      <p class="small">
+        Nguồn TTA VQA:
+        <a href="https://dl.acm.org/doi/10.1109/TMM.2023.3292597" target="_blank" rel="noopener">Test-Time Model Adaptation for VQA (IEEE TMM 2024)</a>.
+      </p>
+    </div>
+
+    <h2>5) Protocol thí nghiệm đề xuất (để claim paper chắc hơn)</h2>
+    <div class="card">
+      <ul>
+        <li><b>Seeds:</b> ít nhất 3 seed cho baseline <code>none</code> và biến thể tốt nhất.</li>
+        <li><b>Threshold sweep:</b> quét riêng từng gate + báo cáo sensitivity.</li>
+        <li><b>Calibration metrics:</b> ECE/Brier + risk-coverage (selective prediction).</li>
+        <li><b>Coverage-quality tradeoff:</b> luôn report % pseudo giữ lại cùng accuracy.</li>
+        <li><b>Qualitative audit:</b> mẫu kept vs dropped theo từng question type (yes/no, counting, external knowledge).</li>
+      </ul>
+    </div>
+
+    <h2>6) Kế hoạch thực thi 3 pha cho repo hiện tại</h2>
+    <div class="card">
+      <p><b>Phase 1 (ngắn hạn, ít rủi ro):</b> Calibration + entropy/margin + report calibration.</p>
+      <p><b>Phase 2 (trung hạn):</b> Multi-view consistency gate + soft weighting/curriculum.</p>
+      <p><b>Phase 3 (mở rộng paper):</b> PathVQA với RAG + PEFT, sau đó thêm TTA cho OOD benchmark.</p>
+    </div>
+
+    <h2>7) Danh sách nguồn tham khảo chính (Perplexity-grounded)</h2>
+    <div class="card">
+      <ol>
+        <li><a href="http://arxiv.org/abs/2309.15963" target="_blank" rel="noopener">An Uncertainty-Aware Pseudo-Label Selection Framework (2023)</a></li>
+        <li><a href="https://openaccess.thecvf.com/content/WACV2025/papers/Xu_Cross_Image_Feature_Perturbation_with_Pseudo_Label_Fusion_for_Semi-Supervised_WACV_2025_paper.pdf" target="_blank" rel="noopener">Cross Image Feature Perturbation with Pseudo Label Fusion (WACV 2025)</a></li>
+        <li><a href="https://www.arxiv.org/abs/2406.00980" target="_blank" rel="noopener">Selectively Answering Visual Questions (ACL Findings 2024)</a></li>
+        <li><a href="https://arxiv.org/html/2408.07221v3" target="_blank" rel="noopener">A Review of Pseudo-Labeling for Computer Vision (2024)</a></li>
+        <li><a href="https://arxiv.org/abs/2410.13085" target="_blank" rel="noopener">MMed-RAG: Multimodal RAG for Medical VLMs (ICLR 2025)</a></li>
+        <li><a href="https://openaccess.thecvf.com/content/ICCV2025W/MRR%202025/papers/Madavan_Med-GRIM_Enhanced_Zero-Shot_Medical_VQA_using_prompt-embedded_Multimodal_Graph_RAG_ICCVW_2025_paper.pdf" target="_blank" rel="noopener">Med-GRIM (ICCVW 2025)</a></li>
+        <li><a href="https://arxiv.org/html/2403.08433v2/" target="_blank" rel="noopener">Empirical Study of PEFT on Vision-Language Pre-train Models (2024)</a></li>
+        <li><a href="https://openreview.net/pdf?id=f5H8WGLQm5" target="_blank" rel="noopener">UniAdapter (ICLR 2024)</a></li>
+        <li><a href="https://dl.acm.org/doi/10.1109/TMM.2023.3292597" target="_blank" rel="noopener">Test-Time Model Adaptation for VQA (TMM 2024)</a></li>
+        <li><a href="https://proceedings.neurips.cc/paper_files/paper/2023/file/a95cc4f370bcc418e7b57d6512e28f52-Paper-Conference.pdf" target="_blank" rel="noopener">TOA: Task-oriented Active VQA (NeurIPS 2023)</a></li>
+      </ol>
+    </div>
+
+    <p class="footer-note">
+      Ghi chú: Báo cáo này tổng hợp từ truy vấn Perplexity trong phiên làm việc hiện tại, sau đó lọc theo mức độ phù hợp với SelTDA + spec hiện có.
+      Một số hướng rất mới (2025-2026) nên được tái kiểm tra reproducibility bằng code/public checkpoints trước khi chốt đưa vào luận văn chính.
+    </p>
+  </div>
+</body>
+</html>

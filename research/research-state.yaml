@@ -1,0 +1,137 @@
+# Research State — SelTDA improvements for data-scarce VQA
+# Seeded 2026-05-26 from docs/reports/2026-05-26-deep-research-seltda-improvements.md
+# Update after every experiment and outer-loop reflection.
+
+project:
+  title: "Improving SelTDA: filtering, iteration, RAG, and counterfactual generation for data-scarce VQA"
+  question: "How can we extend SelTDA (Khan et al., CVPR 2023) to substantially exceed its baseline on A-OKVQA and (especially) PathVQA, given that 30% of teacher-generated pseudo-QA are noisy and the medical-vocabulary failure mode is admitted by the authors themselves?"
+  status: active
+  started: "2026-05-21"  # spec date in docs/superpowers/specs/
+  domain: "data-scarce VQA, self-training, vision-language models"
+  thesis_constraint: "Hard invariant from docs/superpowers/specs/2026-05-21-pseudo-label-filtering-design.md §1.4 — must not modify train_vqa.py, train_vqg.py, data/, models/ (except models/blip.py scoped change), vqa_eval_tools/, or any train/eval configs. Only generation, filtering, and orchestration code is in scope."
+
+literature:
+  key_papers:
+    - id: "khan2023seltda"
+      title: "Q: How to Specialize Large Vision-Language Models to Data-Scarce VQA Tasks? A: Self-Train on Unlabeled Images!"
+      authors: "Khan, Kumar BG, Yu, Schulter, Fu, Chandraker"
+      year: 2023
+      venue: "CVPR 2023"
+      relevance: "Direct baseline. Paper PDF in repo. Full text read."
+      key_numbers: "A-OKVQA 57.1→62.1 val (+5.0); PathVQA zero-shot 25.09→26.76 (+1.67); peak ratio synth:real=2:1; manual eval 62-88% answer-correct."
+    - id: "khan2024dataenvgym"
+      title: "DataEnvGym: Data Generation Agents in Teacher Environments with Student Feedback"
+      authors: "Khan, Stengel-Eskin, Cho, Bansal"
+      year: 2024
+      arxiv: "2410.06215"
+      relevance: "Same first author as SelTDA. Direct iterative successor — student-feedback-driven data generation. Strongest authority for iterative-SelTDA direction."
+    - id: "xia2024mmedrag"
+      title: "MMed-RAG: Versatile Multimodal RAG System for Medical Vision Language Models"
+      authors: "Xia et al."
+      year: 2024
+      arxiv: "2410.13085"
+      relevance: "Domain-aware retrieval + adaptive context selection + preference fine-tuning. Top candidate for PathVQA branch. NOT yet read full text."
+    - id: "deng2024stic"
+      title: "Enhancing Large Vision Language Models with Self-Training on Image Comprehension"
+      authors: "Deng et al."
+      year: 2024
+      arxiv: "2405.19716"
+      relevance: "Self-training LVLM with corrupted/misleading prompts as dispreferred. +4.0% avg with 70% less SFT data. NOT yet read full."
+    - id: "xu2025defacto"
+      title: "DeFacto: Counterfactual Thinking with Images"
+      authors: "Xu et al."
+      year: 2025
+      arxiv: "2509.20912"
+      relevance: "GRPO-RL on counterfactual images for evidence-grounded reasoning. Counterfactual direction. NOT yet read full."
+    - id: "ray2019convqa"
+      title: "Improving Answer Consistency in VQA through Entailed Question Generation"
+      authors: "Ray, Sikka, Divakaran, Lee, Burachas"
+      year: 2019
+      arxiv: "1909.04696"
+      relevance: "Older but underused — entailed question augmentation for consistency. Cheap mini-extension."
+
+  open_problems:
+    - "30% pseudo-QA are noisy on EK/VR question types (Khan 2023 Table 3) — filtering has unrealized headroom."
+    - "PathVQA only +1.67% because zero-shot from A-OKVQA, never trained directly. Training SelTDA directly on PathVQA = open opportunity."
+    - "Question-type distribution skewed to 'how many' (Fig 6 sunburst). Diversity is a paper-stated limitation."
+    - "No published iterative-SelTDA results on VQA (DataEnvGym only validated on toy + math + small-VQA)."
+    - "Bias amplification (Limitation #3 of paper) — counterfactual augmentation underexplored for self-training pipelines."
+
+  evidence_gaps:
+    - "No prior work has filtered SelTDA pseudo-QA with cycle-consistency or multi-view agreement."
+    - "No prior work has combined SelTDA-style self-training with RAG-augmented teacher for medical VQA."
+    - "Calibration metrics (ECE, risk-coverage) have never been reported for VQA pseudo-label selection in published literature."
+
+hypotheses:
+  - id: H1
+    statement: "Cascading conf + ITM + xcons filtering on SelTDA pseudo-QA at quantile thresholds q∈{0.5,0.75,0.9} yields A-OKVQA val accuracy strictly greater than the unfiltered SelTDA baseline (60.01%), holding synth:real=2:1 constant."
+    status: pending
+    motivation: "Direct test of the existing spec §3.4 cascade. If H1 fails, the spec is wrong and we pivot."
+    parent: null
+    priority: high
+    prediction: "Best filter variant beats unfiltered by ≥1.5 absolute points on A-OKVQA val. Sensitivity strongest for xcons gate."
+  - id: H2
+    statement: "Filtering enables higher synth:real ratios than the published 2:1 peak — specifically, filtered 4:1 outperforms unfiltered 4:1 by ≥3 points (since unfiltered 4:1 was 59.73, below 2:1 peak of 60.01)."
+    status: pending
+    motivation: "Khan 2023 Table 4 shows degradation above 2:1 ratio — consistent with noise dilution. If filter helps, we should be able to push higher ratios."
+    parent: H1
+    priority: high
+    prediction: "Filtered 4:1 ≥ 63.0 on A-OKVQA val."
+  - id: H3
+    statement: "Multi-view self-consistency (3 image augmentations, mode-agreement of student zero-shot answers) provides a stronger filtering signal than single-view xcons, measured by filter precision/recall on 100-sample human-judge subset."
+    status: pending
+    motivation: "Extends spec §3.3 — adds 'agreement' signal which literature (STIC, ViLP) supports."
+    parent: H1
+    priority: medium
+    prediction: "Multi-view xcons reaches ≥85% precision and ≥75% recall vs human judge, beating single-view xcons by ≥10 absolute points on at least one metric."
+  - id: H4
+    statement: "Training SelTDA directly on PathVQA (vs the paper's zero-shot transfer from A-OKVQA) closes ≥50% of the gap to a published medical-VLM baseline (e.g. LLaVA-Med) when combined with Phase-1 filtering."
+    status: pending
+    motivation: "Paper's PathVQA result (+1.67%) is artificially low because it was zero-shot. Direct training is a fair test of SelTDA on medical."
+    parent: null
+    priority: high
+    prediction: "PathVQA test accuracy ≥38% (vs 26.76 published zero-shot)."
+  - id: H5
+    statement: "RAG-augmented teacher (image-similarity retrieval over a small biomedical KB, MMed-RAG-style) on PathVQA improves pseudo-QA answer-correctness from baseline ~70% to ≥85% on human-judge subset."
+    status: pending
+    motivation: "Paper Limitation #2 (specialized vocabulary). MMed-RAG abstract claims significant factuality gains for Med-LVLM."
+    parent: H4
+    priority: medium
+    prediction: "Filtered + RAG-aug PathVQA outperforms filtered-only PathVQA by ≥4 absolute points on PathVQA test."
+  - id: H6
+    statement: "Iterative SelTDA (3 rounds with student-feedback-driven re-teaching of the VQG on question types where student is weakest) compounds gains over 1-round filtered SelTDA on A-OKVQA val."
+    status: pending
+    motivation: "DataEnvGym (Khan 2024) shows this works for math/code; VQA case is underexplored."
+    parent: null
+    priority: medium
+    prediction: "Round-3 ≥ round-1 + 2.0 absolute points on A-OKVQA val."
+  - id: H7
+    statement: "Question-type-conditioned generation (prompting teacher to produce balanced counts of yes/no, counting, color, location, knowledge, reasoning) raises A-OKVQA accuracy on the underrepresented type classes (Visual-Reasoning, External-Knowledge) by ≥5 points each."
+    status: pending
+    motivation: "Sunburst chart (Fig 6) shows 'how-many' overrepresentation. Diversity-promoting generation literature (SimpleStrat, On Diversity of Synthetic Data) supports gains."
+    parent: null
+    priority: medium
+    prediction: "Per-type accuracy lift, no overall regression."
+
+experiments:
+  proxy_metric: "A-OKVQA validation accuracy (open-ended, official metric). Secondary: PathVQA test accuracy. Tertiary: filter precision/recall vs 100-sample human judge."
+  baseline_value: 57.11        # A-OKVQA val, BLIP-base, no synthetic (Khan 2023 Tab.4 row 1)
+  best_value: 60.01            # A-OKVQA val, BLIP-base + SelTDA unfiltered synth:real=2:1 (Khan 2023 Tab.4 row 3)
+  total_runs: 0
+  trajectory: []
+
+outer_loop:
+  cycle: 0
+  last_direction: null
+  last_reflection: "Bootstrap complete. Deep research report at docs/reports/2026-05-26-deep-research-seltda-improvements.md served as initial findings."
+
+workspace:
+  findings: "research/findings.md"
+  log: "research/research-log.md"
+  literature_dir: "research/literature/"
+  experiments_dir: "research/experiments/"
+  to_human_dir: "research/to_human/"
+  paper_dir: "research/paper/"
+  deep_research_report: "docs/reports/2026-05-26-deep-research-seltda-improvements.md"
+  spec: "docs/superpowers/specs/2026-05-21-pseudo-label-filtering-design.md"
+  paper_pdf: "Khan_Q_How_To_Specialize_Large_Vision-Language_Models_to_Data-Scarce_VQA_CVPR_2023_paper.pdf"
