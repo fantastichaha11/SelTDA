@@ -7,6 +7,8 @@ from typing import Sequence, Tuple
 
 import numpy as np
 
+from filtering.gate_registry import apply_cascade
+
 
 @dataclass
 class GateConfig:
@@ -23,13 +25,12 @@ class GateThresholds:
 
 def apply_gates(scores: dict, thresholds: GateThresholds) -> Tuple[bool, str]:
     """Cascade: conf -> itm -> xcons. Return (keep, reason)."""
-    if scores["conf"] < thresholds.tau_conf:
-        return False, "conf"
-    if scores["itm"] < thresholds.tau_itm:
-        return False, "itm"
-    if scores["xcons"] < thresholds.tau_xcons:
-        return False, "xcons"
-    return True, "kept"
+    th = {
+        "conf": thresholds.tau_conf,
+        "itm": thresholds.tau_itm,
+        "xcons": thresholds.tau_xcons,
+    }
+    return apply_cascade(scores, th, ["conf", "itm", "xcons"])
 
 
 def thresholds_from_quantile(values: Sequence[float], keep_top: float) -> float:
