@@ -1,0 +1,38 @@
+input: datasets/aokvqa/synthetic_data_raw.json
+image_root: datasets/coco2017
+output: datasets/aokvqa/synthetic_data.json
+report: datasets/aokvqa/filter_report.json
+
+gates:
+  conf:
+    enabled: true
+    keep_top: 0.75
+  itm:
+    enabled: true
+    keep_top: 0.75
+    clip_model: "ViT-B-32"
+    clip_pretrained: "openai"
+  xcons:
+    enabled: true
+    keep_top: 0.75
+    student_ckpt: cache/student_weights/checkpoint_09.pth
+    med_config: configs/med_config.json
+    sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
+    image_size: 384
+
+stratify:
+  enabled: true
+  min_stratum_size: 50
+  global_keep_top_fallback: 0.75
+
+coreset:
+  enabled: true
+  keep_ratio: 0.9
+  diversity_weight: 0.5
+
+scoring_only: false
+seed: 42
+device: cuda
+report_max_examples: 50
+log_every: 200
+torch_home: null

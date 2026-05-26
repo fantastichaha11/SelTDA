@@ -60,6 +60,8 @@ def test_orchestrator_with_all_gates_disabled_keeps_all(tiny_setup):
             "report_max_examples": 10,
             "log_every": 100,
             "torch_home": None,
+            "stratify": {"enabled": False},
+            "coreset": {"enabled": False},
         }
     )
 
@@ -111,6 +113,8 @@ def test_orchestrator_confidence_only_drops_low_logprob(tiny_setup):
             "report_max_examples": 10,
             "log_every": 100,
             "torch_home": None,
+            "stratify": {"enabled": False},
+            "coreset": {"enabled": False},
         }
     )
 
@@ -125,3 +129,55 @@ def test_orchestrator_confidence_only_drops_low_logprob(tiny_setup):
     assert len(out) == 3
     kept_qids = sorted(r["question_id"] for r in out)
     assert kept_qids == [0, 2, 4]
+
+
+def test_orchestrator_stratify_enabled_keeps_subset(tiny_setup):
+    from omegaconf import OmegaConf
+    import filter_pseudo
+
+    config = OmegaConf.create(
+        {
+            "input": tiny_setup["input"],
+            "image_root": tiny_setup["image_root"],
+            "output": tiny_setup["output"],
+            "report": tiny_setup["report"],
+            "gates": {
+                "conf": {"enabled": True, "keep_top": 0.6},
+                "itm": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "clip_model": "x",
+                    "clip_pretrained": "y",
+                },
+                "xcons": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "student_ckpt": "x",
+                    "sbert_model": "y",
+                    "image_size": 384,
+                },
+            },
+            "stratify": {
+                "enabled": True,
+                "min_stratum_size": 1,
+                "global_keep_top_fallback": 0.75,
+            },
+            "coreset": {"enabled": False},
+            "scoring_only": False,
+            "seed": 0,
+            "device": "cpu",
+            "report_max_examples": 10,
+            "log_every": 100,
+            "torch_home": None,
+        }
+    )
+
+    class Args:
+        output_dir = str(Path(tiny_setup["output"]).parent)
+        result_dir = str(Path(tiny_setup["output"]).parent)
+        device = "cpu"
+        seed = 0
+
+    filter_pseudo.main(Args(), config)
+    out = json.loads(Path(tiny_setup["output"]).read_text())
+    assert 0 < len(out) <= 5
