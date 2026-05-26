@@ -35,9 +35,11 @@ def sbert_match(pred: str, ref: str, model: SbertLike) -> float:
     return max(0.0, min(1.0, (cos + 1.0) / 2.0))
 
 
-def max_match(pred: str, ref: str, sbert_model: SbertLike) -> float:
+def max_match(pred: str, ref: str, sbert_model: SbertLike | None = None) -> float:
     """max(exact, sbert) — see spec §3.3."""
     e = exact_match(pred, ref)
     if e >= 1.0:
         return 1.0
+    if sbert_model is None:
+        return e
     return max(e, sbert_match(pred, ref, sbert_model))

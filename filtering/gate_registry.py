@@ -8,9 +8,18 @@ GATE_SCORERS = {
     "xcons": score_xcons,
 }
 
+# lp/kcons scored in filter_pseudo (need student/NLI context); order preserved here.
+GATE_ORDER = ["conf", "itm", "xcons", "lp", "kcons"]
+
 
 def enabled_gate_names(config) -> list[str]:
-    return [name for name in GATE_SCORERS if getattr(config.gates, name).enabled]
+    enabled = []
+    for name in GATE_ORDER:
+        if not hasattr(config.gates, name):
+            continue
+        if getattr(config.gates, name).enabled:
+            enabled.append(name)
+    return enabled
 
 
 def apply_cascade(scores: dict, thresholds: dict, gate_order: list[str]) -> tuple[bool, str]:

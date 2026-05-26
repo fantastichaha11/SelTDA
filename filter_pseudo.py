@@ -137,16 +137,109 @@ def _run_gate_xcons(records, image_root: Path, config) -> float:
     )
 
 
+def _run_gate_lp(records, image_root: Path, config) -> float:
+    from filtering.scorers_language_prior import score_language_prior
+
+    if not config.gates.lp.enabled:
+        for r in records:
+            _scores(r)["lp"] = 1.0
+        return float("-inf")
+
+    lp_cfg = config.gates.lp
+    xcons_cfg = getattr(config.gates, "xcons", None)
+    student = BlipStudentAdapter(
+        checkpoint=lp_cfg.get("student_ckpt") or getattr(
+            xcons_cfg, "student_ckpt", "cache/student_weights/checkpoint_09.pth"
+        ),
+        med_config=lp_cfg.get("med_config")
+        or getattr(xcons_cfg, "med_config", "configs/med_config.json"),
+        image_size=lp_cfg.get("image_size") or getattr(xcons_cfg, "image_size", 384),
+        device=config.device,
+    )
+    corruption = config.gates.lp.get("corruption", "gaussian_noise")
+    for r in tqdm(records, desc="Gate LP"):
+        try:
+            image = Image.open(_resolve_image(image_root, r["image"])).convert("RGB")
+            s = score_language_prior(r, image, student, corruption=corruption)
+        except Exception as e:
+            logger.warning("LP scoring failed for %s: %s", r.get("image"), e)
+            s = 0.0
+        _scores(r)["lp"] = float(s)
+
+    return thresholds_from_quantile(
+        [r["scores"]["lp"] for r in records],
+        keep_top=config.gates.lp.keep_top,
+    )
+
+
+def _run_gate_kcons(records, config) -> float:
+    from filtering.retrieval.wikipedia import retrieve_passages
+    from filtering.scorers_knowledge import score_knowledge_consistency
+
+    if not config.gates.kcons.enabled:
+        for r in records:
+            _scores(r)["kcons"] = 1.0
+        return float("-inf")
+
+    strata_filter = list(config.gates.kcons.get("strata_filter", []) or [])
+    if strata_filter:
+        assign_types(records)
+
+    nli_model = None
+    nli_name = config.gates.kcons.get("nli_model")
+    if nli_name:
+        from sentence_transformers import CrossEncoder
+
+        nli_model = CrossEncoder(nli_name, device=config.device)
+
+    cache_dir = None
+    retrieval = config.gates.kcons.get("retrieval")
+    if retrieval and retrieval.get("cache_dir"):
+        cache_dir = Path(retrieval["cache_dir"])
+
+    k = 3
+    if retrieval and retrieval.get("k"):
+        k = int(retrieval["k"])
+
+    for r in tqdm(records, desc="Gate K-cons"):
+        if strata_filter and r.get("question_type") not in strata_filter:
+            _scores(r)["kcons"] = 1.0
+            continue
+        try:
+            ans = r["answer"][0] if isinstance(r["answer"], list) else r["answer"]
+            passages = retrieve_passages(
+                r["question"], ans, k=k, cache_dir=cache_dir
+            )
+            if nli_model is None:
+                s = 0.5
+            else:
+                s = score_knowledge_consistency(
+                    r["question"], ans, passages, nli_model
+                )
+        except Exception as e:
+            logger.warning("K-cons scoring failed for %s: %s", r.get("image"), e)
+            s = 0.0
+        _scores(r)["kcons"] = float(s)
+
+    return thresholds_from_quantile(
+        [r["scores"]["kcons"] for r in records],
+        keep_top=config.gates.kcons.keep_top,
+    )
+
+
 def _compute_thresholds(records, config) -> dict[str, ThresholdMap]:
     stratify = _stratify_cfg(config)
     stratify_on = bool(stratify and stratify.get("enabled", False))
     if stratify_on:
         assign_types(records)
 
+    image_root = Path(config.image_root)
     gate_runners = {
         "conf": lambda: _run_gate_conf(records, config),
-        "itm": lambda: _run_gate_itm(records, Path(config.image_root), config),
-        "xcons": lambda: _run_gate_xcons(records, Path(config.image_root), config),
+        "itm": lambda: _run_gate_itm(records, image_root, config),
+        "xcons": lambda: _run_gate_xcons(records, image_root, config),
+        "lp": lambda: _run_gate_lp(records, image_root, config),
+        "kcons": lambda: _run_gate_kcons(records, config),
     }
     thresholds: dict[str, ThresholdMap] = {}
     global_fallback: float | None = None

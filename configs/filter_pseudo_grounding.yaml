@@ -1,0 +1,50 @@
+# C3: C+I+X + LP-1 + KC-1 (inherits TS-1 stratified thresholds)
+input: datasets/aokvqa/synthetic_data_raw.json
+image_root: datasets/coco2017
+output: datasets/aokvqa/synthetic_data_grounding.json
+report: datasets/aokvqa/filter_report_grounding.json
+
+gates:
+  conf:
+    enabled: true
+    keep_top: 0.75
+  itm:
+    enabled: true
+    keep_top: 0.75
+    clip_model: "ViT-B-32"
+    clip_pretrained: "openai"
+  xcons:
+    enabled: true
+    keep_top: 0.75
+    student_ckpt: cache/student_weights/checkpoint_09.pth
+    med_config: configs/med_config.json
+    sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
+    image_size: 384
+  lp:
+    enabled: true
+    keep_top: 0.75
+    corruption: gaussian_noise
+  kcons:
+    enabled: true
+    keep_top: 0.75
+    strata_filter: [external_knowledge]
+    nli_model: cross-encoder/nli-deberta-v3-small
+    retrieval:
+      backend: wikipedia_api
+      k: 3
+      cache_dir: cache/retrieval/
+
+stratify:
+  enabled: true
+  min_stratum_size: 50
+  global_keep_top_fallback: 0.75
+
+coreset:
+  enabled: false
+
+scoring_only: false
+seed: 42
+device: cuda
+report_max_examples: 50
+log_every: 200
+torch_home: null
