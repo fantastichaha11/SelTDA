@@ -21,3 +21,5 @@ dry_run: false
 shuffle: true
 
 parse_rationale: false
+question_type_schedule: none  # none | round_robin | target_weak
+weak_types_file: null

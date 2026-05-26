@@ -1,0 +1,14 @@
+project_root: .
+python: python
+max_rounds: 2
+early_stop_delta: 0.5
+generate_config: configs/generate_questions_aokvqa.yaml
+filter_config: configs/filter_pseudo_stratified.yaml
+train_vqa_config: configs/aokvqa.yaml
+train_vqg_config: configs/train_vqg_aokvqa.yaml
+eval_config: configs/eval_aokvqa.yaml
+synthetic_path: datasets/aokvqa/synthetic_data.json
+results_template: research/experiments/iterative/results_round_{round}.json
+skill_gap_template: research/experiments/iterative/skill_gap_{round}.json
+staged_curriculum: false
+train_vqg_on_weak: true

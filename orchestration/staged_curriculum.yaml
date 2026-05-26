@@ -1,0 +1,5 @@
+staged_curriculum: true
+easy_pool: datasets/aokvqa/synthetic_easy.json
+hard_pool: datasets/aokvqa/synthetic_hard.json
+easy_weight: 1
+hard_weight: 3

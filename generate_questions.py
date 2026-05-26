@@ -17,6 +17,7 @@ import re
 
 import cli
 from models.blip import blip_decoder
+from orchestration.type_schedule import next_question_type, type_prompt_prefix
 import random
 
 
@@ -315,6 +316,15 @@ def main(args, config):
     if config.dry_run:
         logger.info("Dry run, not generating any questions")
 
+    schedule = config.get("question_type_schedule", "none")
+    weak_types = None
+    weak_file = config.get("weak_types_file")
+    if weak_file:
+        with open(weak_file, "r") as f:
+            weak_types = json.load(f).get("weak_types", [])
+    base_prompt = config.prompt
+    type_index = 0
+
     new_records = []
     successful_parses = 0
     failed_parses = 0
@@ -329,6 +339,12 @@ def main(args, config):
         # This will result in multiple questions per image, because we
         # are repeating the image and generating a new question each time.
         for _ in range(config.questions_per_image):
+            qtype = next_question_type(type_index, schedule, weak_types)
+            if schedule != "none":
+                model.prompt = base_prompt + type_prompt_prefix(qtype)
+            else:
+                model.prompt = base_prompt
+            type_index += 1
             with torch.no_grad():
                 outputs, logprobs = model.generate(
                     images,
@@ -371,7 +387,10 @@ def main(args, config):
                     failed_parses += 1
                     continue
                 else:
-                    new_records.append(attrs.asdict(record))
+                    record_dict = attrs.asdict(record)
+                    if schedule != "none":
+                        record_dict["question_type"] = qtype
+                    new_records.append(record_dict)
                     successful_parses += 1
 
         truncate_limit = config.get("truncate_to_strict", None)
