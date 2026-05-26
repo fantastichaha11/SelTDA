@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autoresearch Overnight Summary — SelTDA Improvements</title>
+  <style>
+    :root {
+      --bg: #0b1020; --panel: #121a33; --text: #e7ecff; --muted: #a6b1d8;
+      --accent: #6ea8fe; --ok: #3ddc97; --warn: #ffd166; --bad: #ff7a7a;
+      --border: #2a3566; --gold: #f4c430; --silver: #c0c0c0; --bronze: #cd7f32;
+    }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; }
+    .container { max-width: 1080px; margin: 24px auto 60px; padding: 0 20px; }
+    h1, h2, h3 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: 30px; margin-bottom: 6px; }
+    h2 { font-size: 22px; margin: 28px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    h3 { font-size: 17px; margin: 18px 0 8px; color: var(--accent); }
+    p, li { color: var(--text); }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; }
+    .pill { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; margin-right: 8px; color: var(--muted); }
+    code { background: #1a2242; border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: #d7e5ff; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+    th, td { border: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+    th { text-align: left; background: #1b264d; }
+    .gold { color: var(--gold); font-weight: bold; }
+    .silver { color: var(--silver); font-weight: bold; }
+    .bronze { color: var(--bronze); font-weight: bold; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .quote { border-left: 3px solid var(--accent); padding: 8px 14px; margin: 12px 0; background: #0f1630; font-size: 14px; color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .small { color: var(--muted); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .num { font-size: 28px; font-weight: 700; color: var(--accent); margin: 4px 0; }
+    .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+    ol > li { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Autoresearch Overnight Summary</h1>
+    <div class="meta">
+      <span class="pill">2026-05-26 02:30 → 04:01 ICT</span>
+      <span class="pill">~1h30m wall</span>
+      <span class="pill">No code executed (deep research + ideation only)</span>
+      <span class="pill">Stopped on schedule</span>
+    </div>
+
+    <div class="card">
+      <h2 style="border-bottom:none; margin-top:0;">TL;DR</h2>
+      <ol>
+        <li><b>14 → 17 candidate research directions</b> for extending SelTDA, generated using 10 brainstorming + 8 creative-thinking frameworks. Five are <b>transformational</b> (change the paradigm, not just tune it).</li>
+        <li><b>One critical engineering finding</b>: the existing <code>configs/filter_pseudo.yaml</code> uses the published SelTDA-trained student as the xcons judge — that's information leakage and directly violates spec §3.3. <b>Fix before running H1.</b></li>
+        <li><b>Three top-ranked directions after evidence review</b>: <span class="gold">CS-X</span> (coreset-stratified, lowest risk, ZCore Nov 2024 maps directly), <span class="silver">IT-1+curriculum</span> (iterative SelTDA with restart, Cascante-Bonilla 2020 supports), <span class="bronze">RW-1</span> (reward-shaped VQG, must mitigate Rafailov 2024 reward-hacking).</li>
+        <li><b>The previous Perplexity report (2026-05-25) has fabricated arXiv IDs</b> — every reference in tonight's work is HF-paper-index verified.</li>
+        <li>Workspace at <code>research/</code>, 8 new files committed under <code>research(init)</code>.</li>
+      </ol>
+    </div>
+
+    <h2>1. What got built tonight</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>File</th><th>What it is</th><th>Lines</th></tr></thead>
+        <tbody>
+          <tr><td><code>research/research-state.yaml</code></td><td>Project state — 7 hypotheses (H1-H7) with falsifiers + predictions</td><td>~140</td></tr>
+          <tr><td><code>research/findings.md</code></td><td>Current understanding + lessons (incl. xcons leakage finding)</td><td>~50</td></tr>
+          <tr><td><code>research/research-log.md</code></td><td>Chronological log, 7 entries</td><td>~25</td></tr>
+          <tr><td><code>research/experiments/H1-cascade-filter/protocol.md</code></td><td>H1 protocol locked pre-run (8 cascade variants × 3 seeds, budget $130)</td><td>~100</td></tr>
+          <tr><td><code>research/ideation/2026-05-26-divergent-brainstorm.md</code></td><td><b>Phase A</b> — 10 brainstorming frameworks → 110 fragments → 14 named candidates</td><td>~280</td></tr>
+          <tr><td><code>research/ideation/2026-05-26-creative-thinking-deepening.md</code></td><td><b>Phase B</b> — 8 cognitive frameworks → 5 transformational candidates</td><td>~270</td></tr>
+          <tr><td><code>research/literature/2026-05-26-EB-RW-CS-deep-dive.md</code></td><td><b>Phase C</b> — verified literature on EB-1, RW-1, CS-X; counter-evidence and mitigations</td><td>~170</td></tr>
+          <tr><td><code>research/ideation/2026-05-26-RW1-design-deep-dive.md</code></td><td><b>Phase D</b> — RW-1 detailed design with reward-hacking mitigation framework</td><td>~190</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>2. The transformational five</h2>
+    <p class="small">Selected from the 17 total candidates by the creative-thinking frameworks. These are the ones that *change the rules* of SelTDA, not just refine the cascade. Each has a two-sentence pitch in <code>2026-05-26-creative-thinking-deepening.md</code>.</p>
+
+    <div class="card">
+      <h3>EB-1 — Energy-Based SelTDA</h3>
+      <p>Replace the 3-gate cascade with a single learned energy function <code>E<sub>φ</sub>(I,Q,A)</code> trained contrastively against real labeled data. Unifies the gates and unlocks decades of EBM theory (calibration, phase transitions, RG).</p>
+      <p class="small"><b>Counter-evidence</b>: Shevchenko 2022 (arXiv 2206.14355) found EBMs lag CL for VQA representation learning. <b>Mitigation</b>: frame as filter-calibration EBM, NOT representation EBM. Different scope.</p>
+    </div>
+
+    <div class="card">
+      <h3>RW-1 — Reward-Shaped VQG</h3>
+      <p>Use the filter score as a DPO reward signal training the teacher in-loop, instead of post-hoc discarding. West-of-N style preference dataset construction.</p>
+      <p class="small"><b>Counter-evidence</b>: Rafailov 2024 (arXiv 2406.02900) shows reward hacking in DPO is a real, measurable failure mode. <b>Mitigation</b>: held-out judge as auditor (GPT-4V or independent BLIP-ITM-Large); KL budget; track per-gate reward acquisition. This *characterization of hacking modes* becomes its own contribution.</p>
+    </div>
+
+    <div class="card">
+      <h3>MC-1 — MCMC-SelTDA</h3>
+      <p>Reframe iterative SelTDA as Metropolis-Hastings sampling over the student-parameter posterior. Import R-hat, ESS, and burn-in diagnostics. Gives the first principled stopping criterion for self-training.</p>
+      <p class="small"><b>Confirmatory evidence</b>: Karan &amp; Du 2025 "Reasoning with Sampling" (arXiv 2510.14901, 49 HF upvotes) frames base-model improvement as MCMC without training. Direct precedent.</p>
+    </div>
+
+    <div class="card">
+      <h3>CS-X — Coreset-Stratified Filter (Janusian-synthesized from CS-1)</h3>
+      <p>Resolve the "filter strictness ↔ data quantity" tension by recognizing that "quantity" = "informational coverage". Combine submodular coreset selection with per-question-type quantile filtering.</p>
+      <p class="small"><b>Confirmatory evidence</b>: ZCore (Griffin et al., Nov 2024, arXiv 2411.15349) does exactly zero-shot coreset selection on unlabeled pools using foundation-model embeddings. Algorithmic fit is direct. <b>Lowest-risk highest-yield candidate.</b></p>
+    </div>
+
+    <div class="card">
+      <h3>PV-1 — Pivot-VQG</h3>
+      <p>Decouple question generation from answer generation. Stage-1 model produces only Q from image; stage-2 (possibly stronger) answers it. Filtering each stage independently improves quality and diversity.</p>
+      <p class="small">Surfaced from NEG(C2): "Q and A are not generated jointly." Cheap mini-extension feasible in any iterative variant.</p>
+    </div>
+
+    <h2>3. Top-12 ranked candidate list (evidence-weighted)</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>Rank</th><th>ID</th><th>Family</th><th>Novelty</th><th>1-GPU OK</th><th>§1.4 OK</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="gold">🥇</td><td><b>CS-X</b> Coreset-Stratified</td><td>Filtering</td><td>Med-High</td><td>✓</td><td>✓</td></tr>
+          <tr><td class="silver">🥈</td><td><b>IT-1</b> Iterative-SelTDA (+curriculum+restart)</td><td>Iteration</td><td>Med-High</td><td>✓</td><td>✓</td></tr>
+          <tr><td class="bronze">🥉</td><td><b>RW-1</b> Reward-Shaped-VQG (measurement framework)</td><td>Teacher RL</td><td>Very High</td><td>✓</td><td>✓</td></tr>
+          <tr><td>4</td><td>CF-1 + TS-1 Cascade-Filter + Type-Stratified</td><td>Filtering</td><td>Low + Med</td><td>✓</td><td>✓</td></tr>
+          <tr><td>5</td><td>EB-1 Energy-Based-SelTDA</td><td>Filter theory</td><td>Very High</td><td>✓</td><td>✓</td></tr>
+          <tr><td>6</td><td>MC-1 MCMC-SelTDA</td><td>Theory</td><td>Very High</td><td>✓ (analysis)</td><td>✓</td></tr>
+          <tr><td>7</td><td>RG-1 RAG-SelTDA-Medical</td><td>Medical teacher</td><td>High</td><td>✓</td><td>✓</td></tr>
+          <tr><td>8</td><td>PV-1 Pivot-VQG</td><td>Generation</td><td>High</td><td>✓</td><td>✓</td></tr>
+          <tr><td>9-12</td><td>DIFF-1, GROUND-1, JUDGE-1, AL-1</td><td>Various</td><td>Med-High</td><td>△</td><td>✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>4. The xcons leakage finding (action required)</h2>
+    <div class="card">
+      <p><code>configs/filter_pseudo.yaml</code> currently points <code>xcons.student_ckpt</code> at <code>cache/student_weights/checkpoint_09.pth</code> — which per <code>CLAUDE.md</code> is the <b>published SelTDA student</b> (trained on synthetic data). Spec §3.3 explicitly says the xcons judge must be the pretrained-only baseline, not a SelTDA-trained student.</p>
+      <p><b>Why it matters:</b> a pseudo-QA whose answer matches the model's training distribution will score high on xcons regardless of correctness. The gate becomes a tautology and the H1 numbers are uninterpretable.</p>
+      <p><b>Fix options:</b></p>
+      <ol>
+        <li>Download BLIP-base pretrained weights (not in current <code>dataset.sh</code> — needs to be added) and point xcons there.</li>
+        <li>Train a fresh A-OKVQA-real-only student (no synthetic) for use as the xcons judge.</li>
+      </ol>
+      <p><b>Either is feasible.</b> Option 1 is faster, but the BLIP-base pretrained checkpoint is large (~900MB). Option 2 takes ~10h A5000.</p>
+    </div>
+
+    <h2>5. Recommended thesis roadmap (revised after tonight)</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Phase</th><th>Direction</th><th>Estimated A5000-h</th><th>Risk</th><th>Output</th></tr></thead>
+        <tbody>
+          <tr><td>1a</td><td>CF-1 cascade ablation + TS-1 type-stratified + missing baselines (random subsample, length filter, BoN-only)</td><td>~260</td><td>Low</td><td>Section 1 of paper</td></tr>
+          <tr><td>1b</td><td>CS-X — apply ZCore-style coreset on top of CF-1 filter, factorial 2×2</td><td>~80</td><td>Low</td><td>Section 2 (most likely thesis contribution)</td></tr>
+          <tr><td>2</td><td>IT-1 + curriculum + restart, 3 rounds + per-round audit</td><td>~150</td><td>Med</td><td>Section 3 (depends on H6 result)</td></tr>
+          <tr><td>3</td><td>RW-1 measurement framework + hacking characterization + early-stop policy</td><td>~50</td><td>Med-High</td><td>Section 4 (paper-publishable even if RW-1 itself fails)</td></tr>
+          <tr><td>4</td><td>RG-1 PathVQA branch (MMed-RAG-style retrieval into teacher)</td><td>~120</td><td>Med</td><td>Section 5 (medical specialization)</td></tr>
+          <tr><td>5 (stretch)</td><td>EB-1 or MC-1 theoretical chapter</td><td>~40 (analysis only)</td><td>Theoretical</td><td>Discussion / future-work analytical anchor</td></tr>
+        </tbody>
+      </table>
+      <p class="small">Total ~700 A5000-hours ≈ $350 ≈ 4 weeks 1 GPU. Less if some phases drop seed-3 averaging. The roadmap is defensive at the top and ambitious at the bottom — Section 1+2 alone constitutes a workshop paper; +3 constitutes a tier-2 venue; full pipeline aims for tier-1.</p>
+    </div>
+
+    <h2>6. Immediate next actions for the human</h2>
+    <div class="card">
+      <ol>
+        <li><b>Fix the xcons leakage</b> — pick option 1 or 2 in section 4. Without this, any H1 number is meaningless.</li>
+        <li><b>Read three papers in full</b> before building further:
+          <ol>
+            <li>ZCore — <a href="https://arxiv.org/abs/2411.15349">arXiv 2411.15349</a> — for CS-X implementation pattern.</li>
+            <li>DataEnvGym — <a href="https://arxiv.org/abs/2410.06215">arXiv 2410.06215</a> — for IT-1 reference design.</li>
+            <li>Rafailov 2024 — <a href="https://arxiv.org/abs/2406.02900">arXiv 2406.02900</a> — for RW-1 hacking-mitigation chapter.</li>
+          </ol>
+        </li>
+        <li><b>Decide whether to commit to the full thesis roadmap</b> or stop at Section 2 (CS-X). Section 2 alone is publishable.</li>
+        <li>Run <code>filter_pseudo.py</code> in <code>scoring_only</code> mode on the published <code>synthetic_data_raw.json</code> (downloadable from <code>dataset.sh</code> — no generation needed) to see real score distributions before guessing thresholds.</li>
+        <li><b>Discard</b> the 2026-05-25 Perplexity report from working memory — several arXiv IDs in it are fabricated.</li>
+      </ol>
+    </div>
+
+    <h2>7. Honest reflection on tonight's progress</h2>
+    <div class="card">
+      <p class="quote">"Are you deepening understanding or just running experiments?" — Cron-fire prompt</p>
+      <p><b>Deepening understanding.</b> Tonight produced no executed experiments, but it produced:</p>
+      <ul>
+        <li>110 idea fragments → 17 named candidates → 5 transformational ones</li>
+        <li>3 candidates evidence-tested against published literature (EB-1, RW-1, CS-X)</li>
+        <li>1 protocol locked pre-run (H1)</li>
+        <li>1 engineering blocker identified (xcons leakage) before any wasted GPU time</li>
+        <li>Re-ranking that promotes <b>CS-X</b> from a parenthetical mention in the prior deep research to the #1 candidate, on the strength of ZCore (Nov 2024)</li>
+      </ul>
+      <p><b>What didn't happen tonight:</b> no compute, no actual model runs. That's because torch isn't in the local shell and the experiments need Vast.ai. The cron loop kept the cycle of research → brainstorming → creative thinking active until 04:01 stop.</p>
+      <p><b>Reflection on the loop architecture:</b> the brainstorming and creative-thinking skills, applied back-to-back, produced more novel ideas than the deep-research synthesis from earlier in the day. The combination is more than the sum of the parts — the divergent brainstorm generated breadth, the creative-thinking deepening converted some of that breadth into <em>transformational</em> framings (energy-based, MCMC, reward-shaped). Recommend re-applying the same pair in any future stuck phase.</p>
+    </div>
+
+    <p class="small">Cron loop deleted at 04:01 ICT. State is in <code>research/</code>. Resume next session by reading <code>research-state.yaml</code> + this file.</p>
+  </div>
+</body>
+</html>

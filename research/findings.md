@@ -31,6 +31,17 @@ None yet — bootstrap only. Baseline A-OKVQA: 57.11 (no synthetic). Published S
 - **Sample-size caveat for Khan 2023 Table 3**: the 62/70/88% answer-correctness is from n=100 manual eval with wide 95% CI. Don't treat as gospel; redo the human-judge eval on our own filtered/dropped samples.
 - **Previous Perplexity report (2026-05-25) contains fabricated arXiv IDs** for some papers (e.g., "RISE", "R-C2"). Do not trust uncited claims from that report; use only papers cross-verified in the 2026-05-26 deep research report.
 
+## Ideation Output (2026-05-26 overnight)
+
+Applied brainstorming-research-ideas (10 frameworks) + creative-thinking-for-research (8 frameworks). Total: 17 named candidates ranked by evidence-weighted novelty × feasibility × §1.4 compatibility. See `research/ideation/` and `research/literature/`.
+
+**Top 3 (post-evidence)**:
+1. **CS-X Coreset-Stratified Filter** — combine ZCore-style submodular coreset selection (arXiv 2411.15349, Nov 2024) with per-question-type quantile filtering. Lowest risk, highest direct mapping from existing 2024 algorithm. **Promoted to thesis Section 2.**
+2. **IT-1 Iterative-SelTDA** + curriculum + restart — DataEnvGym (Khan 2024, arXiv 2410.06215) supports the framework; Cascante-Bonilla 2020 supports the restart move.
+3. **RW-1 Reward-Shaped VQG** — DPO of teacher with filter score as reward. Must include held-out judge + KL budget + reward-hacking measurement framework (Rafailov 2024 arXiv 2406.02900 documents the failure mode). Janusian reframe positions RW-1 as a *measurement instrument* — publishable even with negative headline result.
+
+**Transformational five** (could anchor a stronger thesis if execution time allows): EB-1 (Energy-Based), RW-1, MC-1 (MCMC-SelTDA), CS-X, PV-1 (Pivot-VQG).
+
 ## Open Questions
 
 1. Does filter precision (% of kept pseudo-QA that are correct on human judge) correlate with final student accuracy gain? Spec §5.4 anticipates this but no data yet.
