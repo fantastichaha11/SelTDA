@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Autoresearch Overnight Summary — SelTDA Improvements</title>
+  <title>Research Summary — SelTDA Improvements (2026-05-26)</title>
   <style>
     :root {
       --bg: #0b1020; --panel: #121a33; --text: #e7ecff; --muted: #a6b1d8;
@@ -20,6 +20,7 @@
     .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; }
     .pill { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; margin-right: 8px; color: var(--muted); }
+    .pill-new { border-color: var(--ok); color: var(--ok); }
     code { background: #1a2242; border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: #d7e5ff; font-size: 13px; }
     table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
     th, td { border: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
@@ -38,160 +39,252 @@
     .num { font-size: 28px; font-weight: 700; color: var(--accent); margin: 4px 0; }
     .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
     ol > li { margin-bottom: 6px; }
+    .update-banner { background: #0f2a1a; border: 1px solid #2a6644; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Autoresearch Overnight Summary</h1>
+    <h1>SelTDA Research Summary</h1>
     <div class="meta">
-      <span class="pill">2026-05-26 02:30 → 04:01 ICT</span>
-      <span class="pill">~1h30m wall</span>
-      <span class="pill">No code executed (deep research + ideation only)</span>
-      <span class="pill">Stopped on schedule</span>
+      <span class="pill">Overnight 2026-05-26 02:30 → 04:01 ICT</span>
+      <span class="pill pill-new">Cập nhật 2026-05-26 (session 2 + Firecrawl SOTA)</span>
+      <span class="pill">Deep research + ideation only — chưa chạy GPU</span>
+    </div>
+
+    <div class="update-banner">
+      <b>Cập nhật mới nhất:</b> Đã bổ sung survey 45+ papers, catalog <b>36 ideas</b>, integrated thesis plan, và <b>SOTA landscape</b> từ Firecrawl (Wizwand, CodeSOTA, OK-VQA official, DataEnvGym). <span class="ok">xcons leakage đã fix trên server (user).</span> Blocker còn lại: <code>synthetic_data_raw.json</code> + GPU compute.
     </div>
 
     <div class="card">
       <h2 style="border-bottom:none; margin-top:0;">TL;DR</h2>
       <ol>
-        <li><b>14 → 17 candidate research directions</b> for extending SelTDA, generated using 10 brainstorming + 8 creative-thinking frameworks. Five are <b>transformational</b> (change the paradigm, not just tune it).</li>
-        <li><b>One critical engineering finding</b>: the existing <code>configs/filter_pseudo.yaml</code> uses the published SelTDA-trained student as the xcons judge — that's information leakage and directly violates spec §3.3. <b>Fix before running H1.</b></li>
-        <li><b>Three top-ranked directions after evidence review</b>: <span class="gold">CS-X</span> (coreset-stratified, lowest risk, ZCore Nov 2024 maps directly), <span class="silver">IT-1+curriculum</span> (iterative SelTDA with restart, Cascante-Bonilla 2020 supports), <span class="bronze">RW-1</span> (reward-shaped VQG, must mitigate Rafailov 2024 reward-hacking).</li>
-        <li><b>The previous Perplexity report (2026-05-25) has fabricated arXiv IDs</b> — every reference in tonight's work is HF-paper-index verified.</li>
-        <li>Workspace at <code>research/</code>, 8 new files committed under <code>research(init)</code>.</li>
+        <li><b>36 research directions</b> (28 extended + 10 SOTA-informed) cho SelTDA — filtering, iteration, medical, robustness. Top 3 vẫn: <span class="gold">CS-X</span>, <span class="silver">IT-1</span>, <span class="bronze">RW-1</span>.</li>
+        <li><b>SOTA reality check (Firecrawl):</b> SelTDA <b>62.1%</b> A-OKVQA val DA vs QACap <b>73.4%</b> vs HinD-CoT-Know MC <b>87.2%</b>. Thesis nên frame <b>data efficiency / pseudo-label quality</b>, không đuổi absolute SOTA.</li>
+        <li><b>PathVQA metric trap:</b> VILA-M3 <b>92.7% overall</b> gộp yes/no (~84%) + free-form (~13%). SelTDA <b>26.76%</b> dùng metric khác — <b>không so sánh trực tiếp</b>. Bắt buộc báo cáo stratified (MCR-1).</li>
+        <li><span class="ok">xcons leakage — đã fix trên server.</span> Trước đây <code>filter_pseudo.yaml</code> dùng SelTDA-trained student làm judge → vi phạm spec §3.3.</li>
+        <li><b>Competitor gần:</b> SemIAug (+1.4% A-OKVQA, không cần unlabeled) — có thể compose với SelTDA (SS-1).</li>
+        <li><b>DataEnvGym</b> (cùng Zaid Khan, ICLR 2025 Spotlight): iterative Skill-Tree → <b>+5.58</b> trên NaturalBench — củng cố IT-1/DE-1.</li>
       </ol>
     </div>
 
-    <h2>1. What got built tonight</h2>
-    <div class="card">
-      <table>
-        <thead><tr><th>File</th><th>What it is</th><th>Lines</th></tr></thead>
-        <tbody>
-          <tr><td><code>research/research-state.yaml</code></td><td>Project state — 7 hypotheses (H1-H7) with falsifiers + predictions</td><td>~140</td></tr>
-          <tr><td><code>research/findings.md</code></td><td>Current understanding + lessons (incl. xcons leakage finding)</td><td>~50</td></tr>
-          <tr><td><code>research/research-log.md</code></td><td>Chronological log, 7 entries</td><td>~25</td></tr>
-          <tr><td><code>research/experiments/H1-cascade-filter/protocol.md</code></td><td>H1 protocol locked pre-run (8 cascade variants × 3 seeds, budget $130)</td><td>~100</td></tr>
-          <tr><td><code>research/ideation/2026-05-26-divergent-brainstorm.md</code></td><td><b>Phase A</b> — 10 brainstorming frameworks → 110 fragments → 14 named candidates</td><td>~280</td></tr>
-          <tr><td><code>research/ideation/2026-05-26-creative-thinking-deepening.md</code></td><td><b>Phase B</b> — 8 cognitive frameworks → 5 transformational candidates</td><td>~270</td></tr>
-          <tr><td><code>research/literature/2026-05-26-EB-RW-CS-deep-dive.md</code></td><td><b>Phase C</b> — verified literature on EB-1, RW-1, CS-X; counter-evidence and mitigations</td><td>~170</td></tr>
-          <tr><td><code>research/ideation/2026-05-26-RW1-design-deep-dive.md</code></td><td><b>Phase D</b> — RW-1 detailed design with reward-hacking mitigation framework</td><td>~190</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <h2>0. SOTA Landscape (Firecrawl — ngoài arXiv)</h2>
+    <p class="small">Nguồn: <a href="../literature/2026-05-26-sota-landscape-firecrawl.md">research/literature/2026-05-26-sota-landscape-firecrawl.md</a></p>
 
-    <h2>2. The transformational five</h2>
-    <p class="small">Selected from the 17 total candidates by the creative-thinking frameworks. These are the ones that *change the rules* of SelTDA, not just refine the cascade. Each has a two-sentence pitch in <code>2026-05-26-creative-thinking-deepening.md</code>.</p>
-
-    <div class="card">
-      <h3>EB-1 — Energy-Based SelTDA</h3>
-      <p>Replace the 3-gate cascade with a single learned energy function <code>E<sub>φ</sub>(I,Q,A)</code> trained contrastively against real labeled data. Unifies the gates and unlocks decades of EBM theory (calibration, phase transitions, RG).</p>
-      <p class="small"><b>Counter-evidence</b>: Shevchenko 2022 (arXiv 2206.14355) found EBMs lag CL for VQA representation learning. <b>Mitigation</b>: frame as filter-calibration EBM, NOT representation EBM. Different scope.</p>
-    </div>
-
-    <div class="card">
-      <h3>RW-1 — Reward-Shaped VQG</h3>
-      <p>Use the filter score as a DPO reward signal training the teacher in-loop, instead of post-hoc discarding. West-of-N style preference dataset construction.</p>
-      <p class="small"><b>Counter-evidence</b>: Rafailov 2024 (arXiv 2406.02900) shows reward hacking in DPO is a real, measurable failure mode. <b>Mitigation</b>: held-out judge as auditor (GPT-4V or independent BLIP-ITM-Large); KL budget; track per-gate reward acquisition. This *characterization of hacking modes* becomes its own contribution.</p>
-    </div>
-
-    <div class="card">
-      <h3>MC-1 — MCMC-SelTDA</h3>
-      <p>Reframe iterative SelTDA as Metropolis-Hastings sampling over the student-parameter posterior. Import R-hat, ESS, and burn-in diagnostics. Gives the first principled stopping criterion for self-training.</p>
-      <p class="small"><b>Confirmatory evidence</b>: Karan &amp; Du 2025 "Reasoning with Sampling" (arXiv 2510.14901, 49 HF upvotes) frames base-model improvement as MCMC without training. Direct precedent.</p>
-    </div>
-
-    <div class="card">
-      <h3>CS-X — Coreset-Stratified Filter (Janusian-synthesized from CS-1)</h3>
-      <p>Resolve the "filter strictness ↔ data quantity" tension by recognizing that "quantity" = "informational coverage". Combine submodular coreset selection with per-question-type quantile filtering.</p>
-      <p class="small"><b>Confirmatory evidence</b>: ZCore (Griffin et al., Nov 2024, arXiv 2411.15349) does exactly zero-shot coreset selection on unlabeled pools using foundation-model embeddings. Algorithmic fit is direct. <b>Lowest-risk highest-yield candidate.</b></p>
-    </div>
-
-    <div class="card">
-      <h3>PV-1 — Pivot-VQG</h3>
-      <p>Decouple question generation from answer generation. Stage-1 model produces only Q from image; stage-2 (possibly stronger) answers it. Filtering each stage independently improves quality and diversity.</p>
-      <p class="small">Surfaced from NEG(C2): "Q and A are not generated jointly." Cheap mini-extension feasible in any iterative variant.</p>
-    </div>
-
-    <h2>3. Top-12 ranked candidate list (evidence-weighted)</h2>
     <div class="card">
       <table>
         <thead>
-          <tr><th>Rank</th><th>ID</th><th>Family</th><th>Novelty</th><th>1-GPU OK</th><th>§1.4 OK</th></tr>
+          <tr><th>Benchmark</th><th>SelTDA (BLIP-base)</th><th>Frontier</th><th>Ghi chú</th></tr>
         </thead>
         <tbody>
-          <tr><td class="gold">🥇</td><td><b>CS-X</b> Coreset-Stratified</td><td>Filtering</td><td>Med-High</td><td>✓</td><td>✓</td></tr>
-          <tr><td class="silver">🥈</td><td><b>IT-1</b> Iterative-SelTDA (+curriculum+restart)</td><td>Iteration</td><td>Med-High</td><td>✓</td><td>✓</td></tr>
-          <tr><td class="bronze">🥉</td><td><b>RW-1</b> Reward-Shaped-VQG (measurement framework)</td><td>Teacher RL</td><td>Very High</td><td>✓</td><td>✓</td></tr>
-          <tr><td>4</td><td>CF-1 + TS-1 Cascade-Filter + Type-Stratified</td><td>Filtering</td><td>Low + Med</td><td>✓</td><td>✓</td></tr>
-          <tr><td>5</td><td>EB-1 Energy-Based-SelTDA</td><td>Filter theory</td><td>Very High</td><td>✓</td><td>✓</td></tr>
-          <tr><td>6</td><td>MC-1 MCMC-SelTDA</td><td>Theory</td><td>Very High</td><td>✓ (analysis)</td><td>✓</td></tr>
-          <tr><td>7</td><td>RG-1 RAG-SelTDA-Medical</td><td>Medical teacher</td><td>High</td><td>✓</td><td>✓</td></tr>
-          <tr><td>8</td><td>PV-1 Pivot-VQG</td><td>Generation</td><td>High</td><td>✓</td><td>✓</td></tr>
-          <tr><td>9-12</td><td>DIFF-1, GROUND-1, JUDGE-1, AL-1</td><td>Various</td><td>Med-High</td><td>△</td><td>✓</td></tr>
+          <tr>
+            <td>A-OKVQA val (DA)</td>
+            <td>57.1 → <b>62.1</b></td>
+            <td>QACap <b>73.4%</b> val</td>
+            <td>Cùng open-ended; khác backbone (LLM+KB)</td>
+          </tr>
+          <tr>
+            <td>A-OKVQA test (MC)</td>
+            <td>—</td>
+            <td>HinD-CoT-Know <b>87.2%</b></td>
+            <td><a href="https://www.wizwand.com/sota/visual-question-answering-multi-choice-on-a-okvqa-test">Wizwand</a>; BLIP-2 MC <b>80.2%</b></td>
+          </tr>
+          <tr>
+            <td>OK-VQA test</td>
+            <td>31.65 → <b>38.03</b></td>
+            <td>Prophet <b>61.11%</b></td>
+            <td><a href="https://okvqa.allenai.org/leaderboard.html">Official leaderboard</a></td>
+          </tr>
+          <tr>
+            <td>PathVQA test</td>
+            <td><b>26.76</b> (zs)</td>
+            <td>VILA-M3 <b>92.7%</b> overall</td>
+            <td class="warn">Metric khác nhau — MMQ free-form chỉ <b>13.4%</b></td>
+          </tr>
+          <tr>
+            <td>VQA v2 test-dev</td>
+            <td>BLIP ~78%</td>
+            <td>Qwen2-VL 72B <b>87.6%</b></td>
+            <td><a href="https://www.codesota.com/benchmark/vqa-v2">CodeSOTA</a> — đã bão hòa</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="quote">Insight: SelTDA có ý nghĩa trong niche <b>data-scarce + BLIP-base + không KB pipeline</b>. Absolute SOTA do LLM+retrieval+CoT+medical pretrain quy mô lớn nắm giữ.</p>
+    </div>
+
+    <h2>1. Ideas catalog — 36 hướng</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="label">Extended catalog</div>
+        <div class="num">28</div>
+        <p class="small">IDEA-01..28 — filtering, generation, iteration, medical, robustness.<br/>
+        <code>research/ideation/2026-05-26-extended-ideas-catalog.md</code></p>
+      </div>
+      <div class="card">
+        <div class="label">SOTA-informed (mới)</div>
+        <div class="num">+10</div>
+        <p class="small">IDEA-29..38 — từ gap analysis Firecrawl.<br/>
+        <code>research/ideation/2026-05-26-sota-informed-ideas.md</code></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>10 ideas mới từ SOTA (ưu tiên cao)</h3>
+      <table>
+        <thead><tr><th>ID</th><th>Tên</th><th>Ý chính</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr><td><b>MCR-1</b></td><td>Metric-Calibrated Reporting</td><td>Báo yes/no vs free-form vs overall trên PathVQA — tránh reviewer attack</td><td>Thấp</td></tr>
+          <tr><td><b>KC-1</b></td><td>Knowledge-Consistency Gate</td><td>Gate thứ 4: retrieve KB → check answer (Prophet-style) cho EK questions</td><td>TB</td></tr>
+          <tr><td><b>SS-1</b></td><td>SemIAug ⊕ SelTDA</td><td>Augment labeled (SemIAug +1.4%) + synthetic filtered — hai trục độc lập</td><td>Thấp</td></tr>
+          <tr><td><b>DE-1</b></td><td>DataEnvGym Skill-Tree</td><td>Multi-round theo weak skills — cùng tác giả Khan</td><td>Cao</td></tr>
+          <tr><td><b>HAL-1</b></td><td>Hallucination Medical Gate</td><td>Perturbation + lexicon gate cho PathVQA free-form</td><td>TB</td></tr>
+          <tr><td><b>YF-1</b></td><td>Yes/No vs Free-Form Curriculum</td><td>Hai track train khác nhau theo question type</td><td>TB</td></tr>
+          <tr><td><b>CB-1</b></td><td>Competitive Baseline Bundle</td><td>Bảng T0–T4 (BLIP → SelTDA → filtered → SemIAug → literature ref)</td><td>Thấp</td></tr>
+          <tr><td><b>SSR-1</b></td><td>Saturation Curve Search</td><td>Grid synth:real 1:1→8:1 × filtered/unfiltered</td><td>TB</td></tr>
+          <tr><td><b>TC-1</b></td><td>Teacher-Scale Ablation</td><td>BLIP vs BLIP-2 teacher — đo pseudo-label quality</td><td>TB</td></tr>
+          <tr><td><b>NB-1</b></td><td>NaturalBench Probe</td><td>Metric phụ generalization sau filter</td><td>TB</td></tr>
         </tbody>
       </table>
     </div>
 
-    <h2>4. The xcons leakage finding (action required)</h2>
+    <h2>2. Transformational five (từ overnight)</h2>
+    <p class="small">Chi tiết trong <code>2026-05-26-creative-thinking-deepening.md</code>.</p>
+
     <div class="card">
-      <p><code>configs/filter_pseudo.yaml</code> currently points <code>xcons.student_ckpt</code> at <code>cache/student_weights/checkpoint_09.pth</code> — which per <code>CLAUDE.md</code> is the <b>published SelTDA student</b> (trained on synthetic data). Spec §3.3 explicitly says the xcons judge must be the pretrained-only baseline, not a SelTDA-trained student.</p>
-      <p><b>Why it matters:</b> a pseudo-QA whose answer matches the model's training distribution will score high on xcons regardless of correctness. The gate becomes a tautology and the H1 numbers are uninterpretable.</p>
-      <p><b>Fix options:</b></p>
-      <ol>
-        <li>Download BLIP-base pretrained weights (not in current <code>dataset.sh</code> — needs to be added) and point xcons there.</li>
-        <li>Train a fresh A-OKVQA-real-only student (no synthetic) for use as the xcons judge.</li>
-      </ol>
-      <p><b>Either is feasible.</b> Option 1 is faster, but the BLIP-base pretrained checkpoint is large (~900MB). Option 2 takes ~10h A5000.</p>
+      <h3>CS-X — Coreset-Stratified Filter <span class="gold">#1</span></h3>
+      <p>Submodular coreset (ZCore arXiv 2411.15349) + per-question-type quantile filtering. Lowest risk, highest yield.</p>
+    </div>
+    <div class="card">
+      <h3>IT-1 / DE-1 — Iterative SelTDA</h3>
+      <p>DataEnvGym (Khan ICLR 2025) Skill-Tree +5.58 trên NaturalBench. Multi-round + restart (Cascante-Bonilla 2020).</p>
+    </div>
+    <div class="card">
+      <h3>RW-1 — Reward-Shaped VQG</h3>
+      <p>DPO với filter score làm reward. Phải mitigate reward hacking (Rafailov 2024). Publishable ngay cả khi negative result.</p>
+    </div>
+    <div class="card">
+      <h3>EB-1 / MC-1 / PV-1</h3>
+      <p>Energy-based filter; MCMC stopping criterion; decouple Q/A generation. Stretch goals cho discussion chapter.</p>
     </div>
 
-    <h2>5. Recommended thesis roadmap (revised after tonight)</h2>
+    <h2>3. Workspace — tất cả artifacts</h2>
     <div class="card">
       <table>
-        <thead><tr><th>Phase</th><th>Direction</th><th>Estimated A5000-h</th><th>Risk</th><th>Output</th></tr></thead>
+        <thead><tr><th>File</th><th>Nội dung</th></tr></thead>
         <tbody>
-          <tr><td>1a</td><td>CF-1 cascade ablation + TS-1 type-stratified + missing baselines (random subsample, length filter, BoN-only)</td><td>~260</td><td>Low</td><td>Section 1 of paper</td></tr>
-          <tr><td>1b</td><td>CS-X — apply ZCore-style coreset on top of CF-1 filter, factorial 2×2</td><td>~80</td><td>Low</td><td>Section 2 (most likely thesis contribution)</td></tr>
-          <tr><td>2</td><td>IT-1 + curriculum + restart, 3 rounds + per-round audit</td><td>~150</td><td>Med</td><td>Section 3 (depends on H6 result)</td></tr>
-          <tr><td>3</td><td>RW-1 measurement framework + hacking characterization + early-stop policy</td><td>~50</td><td>Med-High</td><td>Section 4 (paper-publishable even if RW-1 itself fails)</td></tr>
-          <tr><td>4</td><td>RG-1 PathVQA branch (MMed-RAG-style retrieval into teacher)</td><td>~120</td><td>Med</td><td>Section 5 (medical specialization)</td></tr>
-          <tr><td>5 (stretch)</td><td>EB-1 or MC-1 theoretical chapter</td><td>~40 (analysis only)</td><td>Theoretical</td><td>Discussion / future-work analytical anchor</td></tr>
+          <tr><td><code>research/research-state.yaml</code></td><td>State machine — 7 hypotheses, 36 ideas, SOTA numbers</td></tr>
+          <tr><td><code>research/findings.md</code></td><td>Project memory + open questions</td></tr>
+          <tr><td><code>research/research-log.md</code></td><td>Chronological log (22 entries)</td></tr>
+          <tr><td><code>research/experiments/H1-cascade-filter/protocol.md</code></td><td>H1 protocol — 8 variants × 3 seeds, ~$130</td></tr>
+          <tr><td colspan="2"><b>Ideation</b></td></tr>
+          <tr><td><code>ideation/2026-05-26-divergent-brainstorm.md</code></td><td>Phase A — 14 candidates</td></tr>
+          <tr><td><code>ideation/2026-05-26-creative-thinking-deepening.md</code></td><td>Phase B — transformational 5</td></tr>
+          <tr><td><code>ideation/2026-05-26-convergence-ranking.md</code></td><td>Tier A–E + kill list</td></tr>
+          <tr><td><code>ideation/2026-05-26-creative-session-2-janusian.md</code></td><td>J-1, J-4, SAT-1, LEX-1</td></tr>
+          <tr><td><code>ideation/2026-05-26-extended-ideas-catalog.md</code></td><td><b>28 ideas</b> chi tiết (VN)</td></tr>
+          <tr><td><code>ideation/2026-05-26-sota-informed-ideas.md</code></td><td><b>+10 ideas</b> từ SOTA gap</td></tr>
+          <tr><td colspan="2"><b>Literature</b></td></tr>
+          <tr><td><code>literature/2026-05-26-phase2-literature-synthesis.md</code></td><td>DataEnvGym, MMed-RAG, STIC, DeFacto, ZCore</td></tr>
+          <tr><td><code>literature/2026-05-26-extended-paper-survey.md</code></td><td><b>45+ papers</b>, 9 themes</td></tr>
+          <tr><td><code>literature/2026-05-26-sota-landscape-firecrawl.md</code></td><td><b>SOTA tables</b> từ Wizwand/CodeSOTA/official</td></tr>
+          <tr><td colspan="2"><b>Synthesis</b></td></tr>
+          <tr><td><code>synthesis/2026-05-26-integrated-thesis-plan.md</code></td><td>3-contribution thesis + compute budget ~825 GPU-h</td></tr>
         </tbody>
       </table>
-      <p class="small">Total ~700 A5000-hours ≈ $350 ≈ 4 weeks 1 GPU. Less if some phases drop seed-3 averaging. The roadmap is defensive at the top and ambitious at the bottom — Section 1+2 alone constitutes a workshop paper; +3 constitutes a tier-2 venue; full pipeline aims for tier-1.</p>
     </div>
 
-    <h2>6. Immediate next actions for the human</h2>
+    <h2>4. xcons leakage — <span class="ok">ĐÃ FIX</span></h2>
     <div class="card">
+      <p><code>configs/filter_pseudo.yaml</code> trước đây trỏ <code>xcons.student_ckpt</code> tại SelTDA-trained student → information leakage (spec §3.3).</p>
+      <p class="ok"><b>Trạng thái:</b> User đã sửa trên server. Không còn là blocker.</p>
+      <p class="small">Ghi chú: H1 protocol vẫn yêu cầu pretrained-only judge — verify config trên server trước khi chạy.</p>
+    </div>
+
+    <h2>5. Thesis roadmap (3 contributions)</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Chương</th><th>Contribution</th><th>Ideas chính</th><th>GPU-h (ước)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Filter + baselines</td><td>CF-1, TS-1, random-subsample, CB-1, MCR-1</td><td>~260</td></tr>
+          <tr><td>2</td><td>Coreset + saturation</td><td>CS-X, SSR-1, SS-1 (SemIAug compose)</td><td>~80</td></tr>
+          <tr><td>3</td><td>Iterative + medical</td><td>IT-1/DE-1, KC-1, HAL-1, YF-1, RG-1</td><td>~270</td></tr>
+          <tr><td>4 (stretch)</td><td>Teacher learning</td><td>RW-1 measurement framework</td><td>~50</td></tr>
+        </tbody>
+      </table>
+      <p class="small">Chi tiết: <code>research/synthesis/2026-05-26-integrated-thesis-plan.md</code>. Section 1+2 alone = workshop paper; full pipeline = tier-1 target.</p>
+    </div>
+
+    <h2>6. Compute efficiency (filter + train)</h2>
+    <p class="small"><code>research/notes/2026-05-26-compute-efficiency.md</code></p>
+    <div class="card">
+      <h3>Filter (~3–6h cho 51k QA, không ~45 phút)</h3>
+      <ul>
+        <li><code>conf</code> — đọc JSON, instant</li>
+        <li><code>itm</code> — CLIP × 51k, batch=1</li>
+        <li><code>xcons</code> — BLIP beam-3 generate × 51k → <b>bottleneck</b></li>
+      </ul>
+      <p>Fix: <code>scoring_only=true</code> một lần; sweep threshold offline; pilot tắt xcons.</p>
+      <h3>Train (~10h / variant / seed)</h3>
+      <ul>
+        <li>10 epoch, ~34k samples/epoch, không early-stop val</li>
+        <li>H1 naive: 7×3×10h ≈ <b>210h</b> chỉ train</li>
+      </ul>
+      <p>Fix: successive halving — proxy <code>max_epoch=3</code> + 1 seed → full train top-2 only; reuse checkpoint unfiltered.</p>
+      <p><b>H1 revised budget: ~85–100h</b> thay vì ~260h.</p>
+    </div>
+
+    <h2>7. Blockers &amp; next actions</h2>
+    <div class="card">
+      <h3>Blockers còn lại</h3>
       <ol>
-        <li><b>Fix the xcons leakage</b> — pick option 1 or 2 in section 4. Without this, any H1 number is meaningless.</li>
-        <li><b>Read three papers in full</b> before building further:
-          <ol>
-            <li>ZCore — <a href="https://arxiv.org/abs/2411.15349">arXiv 2411.15349</a> — for CS-X implementation pattern.</li>
-            <li>DataEnvGym — <a href="https://arxiv.org/abs/2410.06215">arXiv 2410.06215</a> — for IT-1 reference design.</li>
-            <li>Rafailov 2024 — <a href="https://arxiv.org/abs/2406.02900">arXiv 2406.02900</a> — for RW-1 hacking-mitigation chapter.</li>
-          </ol>
-        </li>
-        <li><b>Decide whether to commit to the full thesis roadmap</b> or stop at Section 2 (CS-X). Section 2 alone is publishable.</li>
-        <li>Run <code>filter_pseudo.py</code> in <code>scoring_only</code> mode on the published <code>synthetic_data_raw.json</code> (downloadable from <code>dataset.sh</code> — no generation needed) to see real score distributions before guessing thresholds.</li>
-        <li><b>Discard</b> the 2026-05-25 Perplexity report from working memory — several arXiv IDs in it are fabricated.</li>
+        <li><b><code>synthetic_data_raw.json</code></b> — chưa có trên disk local; có thể download từ <code>dataset.sh</code> hoặc generate.</li>
+        <li><b>GPU compute</b> — ~825 GPU-h ước tính cho core thesis (~$350 trên A5000).</li>
+      </ol>
+      <h3>Recommended next steps</h3>
+      <ol>
+        <li>Chạy <code>filter_pseudo.py --overrides scoring_only=true</code> trên published synthetic JSON → xem score distributions.</li>
+        <li>H1 cascade ablation (CF-1 + random-subsample baseline) — protocol đã lock.</li>
+        <li>Implement MCR-1 + CB-1 (free, không cần GPU) vào eval reporting.</li>
+        <li>Thử SS-1: SemIAug compose — gain additive dự kiến +1–2.5 điểm.</li>
+        <li>Đọc full-text: ZCore, DataEnvGym, MMed-RAG trước khi build KC-1/HAL-1.</li>
+        <li><b>Discard</b> Perplexity report 2026-05-25 — một số arXiv IDs fabricated.</li>
       </ol>
     </div>
 
-    <h2>7. Honest reflection on tonight's progress</h2>
-    <div class="card">
-      <p class="quote">"Are you deepening understanding or just running experiments?" — Cron-fire prompt</p>
-      <p><b>Deepening understanding.</b> Tonight produced no executed experiments, but it produced:</p>
-      <ul>
-        <li>110 idea fragments → 17 named candidates → 5 transformational ones</li>
-        <li>3 candidates evidence-tested against published literature (EB-1, RW-1, CS-X)</li>
-        <li>1 protocol locked pre-run (H1)</li>
-        <li>1 engineering blocker identified (xcons leakage) before any wasted GPU time</li>
-        <li>Re-ranking that promotes <b>CS-X</b> from a parenthetical mention in the prior deep research to the #1 candidate, on the strength of ZCore (Nov 2024)</li>
-      </ul>
-      <p><b>What didn't happen tonight:</b> no compute, no actual model runs. That's because torch isn't in the local shell and the experiments need Vast.ai. The cron loop kept the cycle of research → brainstorming → creative thinking active until 04:01 stop.</p>
-      <p><b>Reflection on the loop architecture:</b> the brainstorming and creative-thinking skills, applied back-to-back, produced more novel ideas than the deep-research synthesis from earlier in the day. The combination is more than the sum of the parts — the divergent brainstorm generated breadth, the creative-thinking deepening converted some of that breadth into <em>transformational</em> framings (energy-based, MCMC, reward-shaped). Recommend re-applying the same pair in any future stuck phase.</p>
+    <h2>8. Key numbers reference</h2>
+    <div class="card grid">
+      <div>
+        <div class="label">SelTDA published</div>
+        <p>A-OKVQA val: <b>57.1 → 62.1</b> (+5.0)<br/>
+        OK-VQA: <b>31.65 → 38.03</b> (+6.38)<br/>
+        PathVQA zs: <b>25.09 → 26.76</b> (+1.67)<br/>
+        Peak synth:real = <b>2:1</b><br/>
+        ~30% pseudo-QA noisy (Tab.3)</p>
+      </div>
+      <div>
+        <div class="label">SOTA frontier (2025–2026)</div>
+        <p>A-OKVQA MC: HinD-CoT-Know <b>87.2%</b><br/>
+        A-OKVQA DA val: QACap <b>73.4%</b><br/>
+        OK-VQA: Prophet <b>61.11%</b><br/>
+        PathVQA overall: VILA-M3 <b>92.7%</b><br/>
+        DataEnvGym: Skill-Tree <b>+5.58</b><br/>
+        SemIAug: <b>+1.4%</b> A-OKVQA</p>
+      </div>
     </div>
 
-    <p class="small">Cron loop deleted at 04:01 ICT. State is in <code>research/</code>. Resume next session by reading <code>research-state.yaml</code> + this file.</p>
+    <h2>9. Honest reflection</h2>
+    <div class="card">
+      <p><b>Tiến độ tích lũy:</b></p>
+      <ul>
+        <li>Overnight: 110 fragments → 17 candidates → 5 transformational</li>
+        <li>Session 2: 45+ papers → 28 ideas catalog → integrated thesis plan</li>
+        <li>Firecrawl SOTA: calibrate expectations, +10 ideas, metric trap documented</li>
+        <li>xcons blocker caught pre-GPU; user fixed on server</li>
+      </ul>
+      <p class="quote">Thesis framing quan trọng nhất từ SOTA pass: đóng góp là <b>chất lượng pseudo-label trong data-scarce niche</b>, không phải beat HinD-CoT-Know 87.2%.</p>
+      <p class="small">Resume: đọc <code>research-state.yaml</code> + file này. Chạy H1 khi có GPU + synthetic data.</p>
+    </div>
+
+    <p class="small">Last updated: 2026-05-26 (session 2 + Firecrawl). Original overnight cron stopped 04:01 ICT.</p>
   </div>
 </body>
 </html>

@@ -25,7 +25,7 @@
 
 | # | Blocker | Owner action |
 |---|---|---|
-| 1 | **xcons leakage**: `configs/filter_pseudo.yaml` uses `cache/student_weights/checkpoint_09.pth` — the SelTDA-trained student. Spec §3.3 explicitly forbids this (the xcons judge must be pretrained-only, not synthetic-trained). | Replace with BLIP pretrained weights, e.g. `cache/blip_pretrained.pth`, or train a fresh A-OKVQA-only student for use as judge. |
+| 1 | ~~**xcons leakage**~~ | **Resolved on server** (user). |
 | 2 | No compute env with torch in the current local shell. | Use Vast.ai 1×A5000 per spec §5.6. Or set up local torch env. |
 | 3 | `synthetic_data_raw.json` does not exist on disk yet. | Run `examples/generate_synthetic_data.sh` first. ~3h on A5000. |
 | 4 | Tests don't run locally because no torch — can't verify implementation cleanly before generation. | Add minimal `pytest -m "not slow"` smoke test that uses stub adapter (no model load). Or run tests on remote compute. |
@@ -73,17 +73,19 @@ Secondary:
 
 ## Compute budget
 
-| Step | A5000 hours | Cost @$0.50/h |
-|---|---|---|
-| Generation (raw 51k pseudo) | 3h | $1.50 |
-| Scoring-only audit | 0.75h | $0.40 |
-| Filter (all 7 cascade variants) | 0.75h × 7 = 5h | $2.50 |
-| Train 7 variants × 3 seeds × 10h | 210h | $105 |
-| **Phase 1a total** | **~220h** | **~$110** |
-| Phase 1b threshold sweep ×4 ×1 seed | 40h | $20 |
-| **Total (1a+1b)** | **~260h ≈ 11 days 1 GPU** | **~$130** |
+> **Revised 2026-05-26** after code audit — see `research/notes/2026-05-26-compute-efficiency.md`.
 
-If we drop 3-seed to 1-seed on inferior variants, budget halves.
+| Step | Naive (old) | Revised strategy |
+|---|---|---|
+| Generation (raw 51k pseudo) | 3h | 3h (unchanged) |
+| Filter scoring (`scoring_only=true`, once) | 0.75h × 7 = 5h | **~4h once** (xcons dominates; was underestimated) |
+| Offline threshold → 8 JSONs | — | CPU, minutes |
+| Train screen (7 var × 1 seed × 3 epoch) | — | **~12–15h** |
+| Train confirm (top-2 × 3 seeds × 10 epoch) | 210h | **~60h** |
+| Unfiltered baseline retrain | 30h | **0h** (use published 60.01% or `cache/student_weights/checkpoint_09.pth`) |
+| **Phase 1a total** | **~260h** | **~85–100h** (~4 days 1 GPU) |
+
+**Do not** run `filter_pseudo.py` seven times for seven variants — run once with all scores, then apply gates offline (CE-01).
 
 ## Pre-commit verification
 

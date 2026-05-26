@@ -25,24 +25,35 @@ literature:
       year: 2024
       arxiv: "2410.06215"
       relevance: "Same first author as SelTDA. Direct iterative successor — student-feedback-driven data generation. Strongest authority for iterative-SelTDA direction."
+      read_status: "abstract_verified"
+      note: "Full text pending; see literature/2026-05-26-phase2-literature-synthesis.md"
     - id: "xia2024mmedrag"
       title: "MMed-RAG: Versatile Multimodal RAG System for Medical Vision Language Models"
       authors: "Xia et al."
       year: 2024
       arxiv: "2410.13085"
-      relevance: "Domain-aware retrieval + adaptive context selection + preference fine-tuning. Top candidate for PathVQA branch. NOT yet read full text."
+      relevance: "Domain-aware retrieval + adaptive context selection + preference fine-tuning. Top candidate for PathVQA branch (RG-1). Abstract verified 2026-05-26; full text pending."
+      key_numbers: "Claims +43.8% avg factual accuracy on 5 medical datasets (abstract-only — verify before citing)"
     - id: "deng2024stic"
       title: "Enhancing Large Vision Language Models with Self-Training on Image Comprehension"
       authors: "Deng et al."
       year: 2024
       arxiv: "2405.19716"
-      relevance: "Self-training LVLM with corrupted/misleading prompts as dispreferred. +4.0% avg with 70% less SFT data. NOT yet read full."
+      relevance: "Corrupted/misleading prompts as dispreferred pairs. Supports H3 multi-view filtering. Abstract verified 2026-05-26."
+      key_numbers: "+4.0% avg on 7 benchmarks, 70% less SFT data (abstract)"
     - id: "xu2025defacto"
       title: "DeFacto: Counterfactual Thinking with Images"
       authors: "Xu et al."
       year: 2025
       arxiv: "2509.20912"
-      relevance: "GRPO-RL on counterfactual images for evidence-grounded reasoning. Counterfactual direction. NOT yet read full."
+      relevance: "Counterfactual + random-masking paradigms for faithful reasoning. CT-1 branch. Abstract verified 2026-05-26."
+    - id: "griffin2024zcore"
+      title: "Zero-Shot Coreset Selection via Iterative Subspace Sampling (ZCore)"
+      authors: "Griffin, Marks, Corso"
+      year: 2024
+      arxiv: "2411.15349"
+      relevance: "Direct algorithm for CS-X. Code: github.com/voxel51/zcore. Abstract verified 2026-05-26."
+      key_numbers: "ImageNet 10% selection → 53.99% val acc (abstract)"
     - id: "ray2019convqa"
       title: "Improving Answer Consistency in VQA through Entailed Question Generation"
       authors: "Ray, Sikka, Divakaran, Lee, Burachas"
@@ -121,17 +132,54 @@ experiments:
   trajectory: []
 
 outer_loop:
-  cycle: 0
-  last_direction: null
-  last_reflection: "Bootstrap complete. Deep research report at docs/reports/2026-05-26-deep-research-seltda-improvements.md served as initial findings."
+  cycle: 1
+  last_direction: "Three-contribution thesis: (1) filter+TS-1+CS-X, (2) IT-1 iterative, (3) PathVQA direct+RG-1"
+  last_reflection: "Firecrawl SOTA survey (Wizwand/CodeSOTA/DataEnvGym). 36 ideas total (+10 SOTA-informed). xcons fixed. Blocked: synthetic_data_raw.json + GPU."
+
+ideas_catalog:
+  total: 36
+  file: "research/ideation/2026-05-26-extended-ideas-catalog.md"
+  sota_informed: "research/ideation/2026-05-26-sota-informed-ideas.md"
+  priority_p0: [IDEA-01, IDEA-02, IDEA-03, IDEA-04, IDEA-27, MCR-1, CB-1]
+  priority_p1: [IDEA-17, IDEA-18, IDEA-21, IDEA-22, IDEA-13, KC-1, SS-1, HAL-1]
+  priority_p2: [IDEA-05, IDEA-06, IDEA-11, IDEA-24, IDEA-07, DE-1, YF-1, SSR-1]
+
+sota_landscape:
+  file: "research/literature/2026-05-26-sota-landscape-firecrawl.md"
+  sources: [wizwand, opencodepapers, codesota, okvqa_official, dataenvgym_site, semiaug_mdpi]
+  key_numbers:
+    aokvqa_mc_test_top: "HinD-CoT-Know 87.2% (Wizwand Nov 2025)"
+    aokvqa_da_val_qacap: "QACap 73.4% (CVPR 2025)"
+    seltda_aokvqa_val: "62.1% DA (Khan 2023)"
+    okvqa_test_top: "Prophet 61.11% (official leaderboard)"
+    pathvqa_test_top: "VILA-M3 92.7% overall (Wizwand); MMQ free-form 13.4%"
+    vqav2_test_top: "Qwen2-VL 72B 87.6% (CodeSOTA 2026)"
+    dataenvgym_naturalbench: "Skill-Tree GPT-4o +5.58 student improvement"
+
+candidates:
+  tier_a: [CF-1, TS-1, CS-X, random-subsample-baseline]
+  tier_b: [IT-1, RG-1]
+  tier_c: [CT-1, H3-multi-view]
+  tier_d: [RW-1, PAC-1, EB-1]
+  session2_new: [J-1, J-4, SAT-1, LEX-1, UT-1]
 
 workspace:
   findings: "research/findings.md"
   log: "research/research-log.md"
   literature_dir: "research/literature/"
+  ideation_dir: "research/ideation/"
+  synthesis_dir: "research/synthesis/"
   experiments_dir: "research/experiments/"
   to_human_dir: "research/to_human/"
   paper_dir: "research/paper/"
+  integrated_plan: "research/synthesis/2026-05-26-integrated-thesis-plan.md"
+  convergence_ranking: "research/ideation/2026-05-26-convergence-ranking.md"
+  phase2_literature: "research/literature/2026-05-26-phase2-literature-synthesis.md"
+  extended_survey: "research/literature/2026-05-26-extended-paper-survey.md"
+  extended_ideas: "research/ideation/2026-05-26-extended-ideas-catalog.md"
+  sota_landscape: "research/literature/2026-05-26-sota-landscape-firecrawl.md"
+  sota_ideas: "research/ideation/2026-05-26-sota-informed-ideas.md"
+  compute_efficiency: "research/notes/2026-05-26-compute-efficiency.md"
   deep_research_report: "docs/reports/2026-05-26-deep-research-seltda-improvements.md"
   spec: "docs/superpowers/specs/2026-05-21-pseudo-label-filtering-design.md"
   paper_pdf: "Khan_Q_How_To_Specialize_Large_Vision-Language_Models_to_Data-Scarce_VQA_CVPR_2023_paper.pdf"
