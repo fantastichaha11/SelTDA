@@ -39,6 +39,17 @@ class OpenClipAdapter:
             emb = self.model.encode_text(tokens)
         return emb.cpu().numpy().squeeze(0)
 
+    def embed_images_batch(self, images: list) -> list:
+        tensors = []
+        for image in images:
+            if isinstance(image, (str, bytes)):
+                image = Image.open(image).convert("RGB")
+            tensors.append(self.preprocess(image))
+        batch = self._torch.stack(tensors, dim=0).to(self.device)
+        with self._torch.no_grad():
+            emb = self.model.encode_image(batch)
+        return [emb[i].cpu().numpy() for i in range(emb.size(0))]
+
 
 class BlipStudentAdapter:
     """Frozen BLIP-VQA pretrained checkpoint for Gate 3 zero-shot scoring."""
@@ -77,9 +88,21 @@ class BlipStudentAdapter:
         )
 
     def answer_question(self, image, question: str) -> str:
-        if isinstance(image, (str, bytes)):
-            image = Image.open(image).convert("RGB")
-        tensor = self.preprocess(image).unsqueeze(0).to(self.device)
+        return self.answer_questions_batch([image], [question])[0]
+
+    def answer_questions_batch(self, images: list, questions: list[str]) -> list[str]:
+        if len(images) != len(questions):
+            raise ValueError("images and questions must have the same length")
+        if not images:
+            return []
+        tensors = []
+        for image in images:
+            if isinstance(image, (str, bytes)):
+                image = Image.open(image).convert("RGB")
+            tensors.append(self.preprocess(image))
+        batch = self._torch.stack(tensors, dim=0).to(self.device)
         with self._torch.no_grad():
-            answers = self.model(tensor, question, train=False, inference="generate")
-        return answers[0] if isinstance(answers, list) else str(answers)
+            answers = self.model(batch, questions, train=False, inference="generate")
+        if isinstance(answers, list):
+            return [str(a) for a in answers]
+        return [str(answers)]
