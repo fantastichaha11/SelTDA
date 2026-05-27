@@ -19,6 +19,7 @@ env/
 # IDE-specific files
 .idea/
 .vscode/
+.claude.local.md
 *.pydevproject
 
 # Miscellaneous

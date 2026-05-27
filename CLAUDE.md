@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Repo layout
+
+- Git root and all commands: `cd SelTDA` (parent `thesis/` is not the repo).
+
 ## Project Overview
 
 SelTDA is a self-training framework for data-scarce VQA (Visual Question Answering) tasks, introduced in CVPR 2023. It is built on top of [salesforce/BLIP](https://github.com/salesforce/BLIP). The pipeline has four stages:
@@ -101,6 +105,56 @@ pytest                            # all tests
 pytest -m "not slow"             # skip slow tests
 pytest tests/test_gates.py       # single file
 pytest tests/test_scorers_clip.py -k "test_score_confidence"  # single test
+pytest tests/test_gate_registry.py tests/test_strata.py tests/test_coreset.py  # C1
+pytest tests/test_grounding_cascade.py tests/test_scorers_language_prior.py   # C3
+pytest tests/test_iterative_smoke.py tests/test_skill_gap.py                    # C2
+bash scripts/check_invariants.sh   # must pass before PR (vs origin/master)
+```
+
+## Thesis feature branches (C1 / C2 / C3)
+
+| Branch | Contribution | Main deliverables | Spec / plan |
+|--------|--------------|-------------------|-------------|
+| `feat/pseudo-label-filter` | **C1** Structured curation | Gate registry (REG-1), TS-1 (`filtering/strata.py`), CS-X (`filtering/coreset.py`), `configs/filter_pseudo_{stratified,coreset}.yaml`, `scripts/random_subsample_control.py`, `scripts/sweep_synth_ratio.sh` | `docs/superpowers/specs/2026-05-27-c1-*.md`, `plans/2026-05-27-c1-*.md` |
+| `feat/grounding-gates` | **C3** Grounding gates | LP-1 (`filtering/scorers_language_prior.py`), KC-1 + Wikipedia (`filtering/retrieval/`, `scorers_knowledge.py`), `configs/filter_pseudo_grounding.yaml`, `GATE_ORDER` += `lp`, `kcons` | `docs/superpowers/specs/2026-05-27-c3-*.md`, `plans/2026-05-27-c3-*.md` |
+| `feat/iterative-seltda` | **C2** Closed-loop | `orchestration/` (IT-1, J-1), TC-1 in `generate_questions.py`, `orchestration/iterative_aokvqa.yaml`, `scripts/run_iterative_round.sh` | `docs/superpowers/specs/2026-05-27-c2-*.md`, `plans/2026-05-27-c2-*.md` |
+
+**Fork:** C2 and C3 branch from C1 after gate registry. **Recommended merge order:** `feat/pseudo-label-filter` → `feat/grounding-gates` → `feat/iterative-seltda`.
+
+### C1 — `feat/pseudo-label-filter`
+
+1. `git checkout feat/pseudo-label-filter`
+2. Filter with type-stratified thresholds (TS-1): `python filter_pseudo.py --config configs/filter_pseudo_stratified.yaml`
+3. Filter TS-1 + coreset (CS-X): `python filter_pseudo.py --config configs/filter_pseudo_coreset.yaml`
+4. Random subsample control (IDEA-04): `python scripts/random_subsample_control.py --reference datasets/aokvqa/synthetic_data.json --pool datasets/aokvqa/synthetic_data_raw.json --output datasets/aokvqa/synthetic_random.json --seed 42`
+5. SAT-1 sweep manifest: `bash scripts/sweep_synth_ratio.sh` → `research/experiments/saturation/accuracy_vs_ratio.csv` (train/eval via `examples/run_experiment.sh`)
+6. Tests: `pytest -m "not slow" tests/test_gate_registry.py tests/test_strata.py tests/test_coreset.py tests/test_filter_pseudo_smoke.py -q`
+7. `bash scripts/check_invariants.sh`
+
+### C3 — `feat/grounding-gates`
+
+1. `git checkout feat/grounding-gates`
+2. Filter C+I+X + LP-1 + KC-1: `python filter_pseudo.py --config configs/filter_pseudo_grounding.yaml` (KC mainly on `external_knowledge` stratum; needs student, Wikipedia API, NLI model, cache `cache/retrieval/`)
+3. Score-only debug: `--overrides scoring_only=true`
+4. Tests: `pytest -m "not slow" tests/test_scorers_language_prior.py tests/test_wikipedia_retrieval.py tests/test_scorers_knowledge.py tests/test_grounding_cascade.py -q`
+5. First push/pull: `git push -u origin feat/grounding-gates` then `git pull origin feat/grounding-gates`
+
+### C2 — `feat/iterative-seltda`
+
+1. `git checkout feat/iterative-seltda`
+2. One IT-1 round (generate → filter → train → eval → skill gap): configure and run `orchestration/iterative_seltda.py` with `orchestration/iterative_aokvqa.yaml`
+3. TC-1: set `question_type_schedule` and `weak_types_file` in `configs/generate_questions_aokvqa.yaml`
+4. J-1 staged curriculum: `bash scripts/run_iterative_round.sh` → `synthetic_easy.json`, `synthetic_hard.json`, `synthetic_staged.json` (merge 1:3 easy:hard)
+5. Tests: `pytest -m "not slow" tests/test_skill_gap.py tests/test_merge_pools.py tests/test_type_schedule.py tests/test_iterative_smoke.py -q`
+6. `train_vqg_config` in YAML is optional — orchestrator skips if missing
+
+### Verify on any feature branch
+
+```bash
+cd SelTDA
+pip install omegaconf hydra-core -q
+pytest -m "not slow" -q
+bash scripts/check_invariants.sh
 ```
 
 ## Architecture
@@ -131,18 +185,25 @@ Every VQA JSON file is a list of dictionaries. Key fields (see `schemas.py` for 
 Use `schemas.TrainingRecord` / `schemas.TestingRecord` to validate new datasets.
 
 ### Filtering (`filtering/`)
-Three independent quality gates applied in cascade order:
-1. **conf** (`scorers.score_confidence`) — teacher log-probability; keeps top-k% by quantile
-2. **itm** (`scorers.score_clip_itm`) — CLIP cosine similarity between image and "Q? A." text
-3. **xcons** (`scorers.score_xcons`) — cross-consistency: student zero-shot answer vs. pseudo-answer, scored with sentence-BERT (`filtering/matchers.py`)
+Cascade via `filtering/gate_registry.py` (`GATE_ORDER`, `enabled_gate_names`, `apply_cascade`). Base scorers in `GATE_SCORERS`; **lp** and **kcons** are scored in `filter_pseudo.py` (need student / NLI / Wikipedia).
 
-`filtering/gates.py` contains `apply_gates` and quantile threshold helpers. `filtering/adapters.py` wraps BLIP and OpenCLIP behind a common interface. `filtering/report.py` builds a JSON diagnostic report.
+1. **conf** — teacher log-probability (quantile; TS-1 per stratum in `strata.py`)
+2. **itm** — CLIP image–text match
+3. **xcons** — student vs pseudo-answer (`matchers.py`; `sbert_model=None` skips SBERT)
+4. **lp** (C3) — answer stability under image corruption
+5. **kcons** (C3) — NLI over Wikipedia passages (`filtering/retrieval/`)
+
+`filtering/gates.py`: `apply_gates` delegates to `apply_cascade` (keeps `GateThresholds` API). CS-X: `coreset.py`. `adapters.py` wraps BLIP/OpenCLIP; `report.py` builds filter diagnostics.
 
 ### Checkpoints
 Saved as `checkpoint_XX.pth` dicts containing `model`, `optimizer`, `config`, `epoch`. `checkpoint_utils.py` handles `--resume auto` (picks latest by epoch number) and explicit path resume. Only `train_vqa.py` currently supports resume; `train_vqg.py` does not.
 
 ## Gotchas
 
+- **filter_pseudo ordering**: populate `r["scores"]` before thresholds/cascade; skip `apply_cascade` if no gates enabled; compute stratify `global_fallback` only after `conf` scores exist.
+- **Gate registry**: do not replace `apply_gates` with a re-export of `apply_cascade` — breaks `GateThresholds` callers/tests.
+- **Test deps**: `filter_pseudo` / `generate_questions` tests import Hydra/OmegaConf — `pip install omegaconf hydra-core` in minimal envs.
+- **Feature branch git**: new branches lack upstream — `git pull origin <branch>` or `git push -u origin <branch>` before bare `git pull` works.
 - **A-OKVQA convert step**: after `bash dataset.sh`, run `python convert_aokvqa.py --config configs/aokvqa.yaml` before any A-OKVQA training/eval.
 - **`wandb: true` default**: `configs/aokvqa.yaml` (and others) have W&B enabled by default. Local runs will crash unless you add `--overrides wandb=false`.
 - **Dead `torch_home`**: configs point `torch_home` to a network path that won't exist locally. Override with `torch_home=$(pwd)/cache/torch_home` or set `torch_home=null`.
