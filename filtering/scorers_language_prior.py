@@ -40,16 +40,17 @@ def score_language_prior(
     student,
     corruption: str = "gaussian_noise",
     sbert=None,
+    *,
+    a_clean: str | None = None,
 ) -> float:
     answer = record["answer"]
     if isinstance(answer, list):
         answer = answer[0] if answer else ""
     q = record["question"]
-    a_clean = student.answer_question(image, q)
-    corrupt_img = corrupt_image(
-        image if isinstance(image, Image.Image) else Image.open(image).convert("RGB"),
-        corruption,
-    )
+    if a_clean is None:
+        a_clean = student.answer_question(image, q)
+    base = image if isinstance(image, Image.Image) else Image.open(image).convert("RGB")
+    corrupt_img = corrupt_image(base.copy(), corruption)
     a_corrupt = student.answer_question(corrupt_img, q)
     clean_ok = max_match(a_clean, answer, sbert_model=sbert) >= 0.5
     corrupt_ok = max_match(a_corrupt, answer, sbert_model=sbert) >= 0.5

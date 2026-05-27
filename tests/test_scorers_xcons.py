@@ -24,18 +24,19 @@ class StubSbert:
 
 def test_score_xcons_exact_match():
     student = StubStudent("dog")
-    s = score_xcons(
+    s, pred = score_xcons(
         record={"question": "what is this?", "answer": ["dog"]},
         image=None,
         student=student,
         sbert=StubSbert(),
     )
     assert s == 1.0
+    assert pred == "dog"
 
 
 def test_score_xcons_falls_back_to_sbert_paraphrase():
     student = StubStudent("a dog")
-    s = score_xcons(
+    s, _ = score_xcons(
         record={"question": "what is this?", "answer": ["dog"]},
         image=None,
         student=student,
@@ -46,7 +47,7 @@ def test_score_xcons_falls_back_to_sbert_paraphrase():
 
 def test_score_xcons_mismatch():
     student = StubStudent("cat")
-    s = score_xcons(
+    s, _ = score_xcons(
         record={"question": "what is this?", "answer": ["dog"]},
         image=None,
         student=student,
@@ -64,3 +65,17 @@ def test_score_xcons_passes_correct_question_to_student():
         sbert=StubSbert(),
     )
     assert student.last_call == ("img_obj", "what is this?")
+
+
+def test_score_xcons_reuses_predicted_without_student_call():
+    student = StubStudent("dog")
+    s, pred = score_xcons(
+        record={"question": "what is this?", "answer": ["dog"]},
+        image=None,
+        student=student,
+        sbert=StubSbert(),
+        predicted="dog",
+    )
+    assert s == 1.0
+    assert pred == "dog"
+    assert student.last_call is None

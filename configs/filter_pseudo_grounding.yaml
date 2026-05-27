@@ -13,6 +13,7 @@ gates:
     keep_top: 0.75
     clip_model: "ViT-B-32"
     clip_pretrained: "openai"
+    batch_size: 32
   xcons:
     enabled: true
     keep_top: 0.75
@@ -20,6 +21,7 @@ gates:
     med_config: configs/med_config.json
     sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
     image_size: 384
+    batch_size: 8
   lp:
     enabled: true
     keep_top: 0.75

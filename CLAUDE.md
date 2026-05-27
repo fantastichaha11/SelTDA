@@ -210,3 +210,4 @@ Saved as `checkpoint_XX.pth` dicts containing `model`, `optimizer`, `config`, `e
 - **A-OKVQA eval set**: the public test set requires server-side scoring. For local evaluation, pass `--overrides use_validation_set_as_test_set=true`.
 - **`train_vqg.py` does not support `--resume`**; only `train_vqa.py` does.
 - **Filter debug mode**: add `--overrides scoring_only=true` to `filter_pseudo.py` to compute and attach scores to all records without discarding any.
+- **Filter speed (xcons/itm)**: `ImageCache` + batched CLIP/BLIP via `gates.itm.batch_size` (default 32) and `gates.xcons.batch_size` (default 8); LP reuses `_student_answer` from xcons when both run. Lower batch sizes on OOM.
