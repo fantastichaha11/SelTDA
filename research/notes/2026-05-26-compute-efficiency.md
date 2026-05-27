@@ -17,11 +17,19 @@
 
 **Tổng filter (3 gate bật)**: thường **~3–6 giờ** cho 51k pseudo-QA, không phải ~45 phút như H1 protocol cũ ước tính.
 
-### Nguyên nhân trong code
+### Nguyên nhân trong code (trước 2026-05-27)
 
 1. **`xcons` = inference VQA đầy đủ** — `BlipStudentAdapter.answer_question()` → `blip_vqa.generate(num_beams=3)` mỗi record (`filtering/adapters.py`, `models/blip_vqa.py`).
 2. **`itm` = 2 forward CLIP/sample**, không batch (`filter_pseudo.py` vòng `for r in tqdm(records)`).
 3. **Ảnh đọc 2 lần** — ITM và xcons mỗi gate mở lại `Image.open` (không cache embedding theo `image` path).
+
+### Đã tối ưu (2026-05-27)
+
+- **`ImageCache`** (`filtering/image_cache.py`) — cache PIL RGB theo `image` path; dùng chung ITM/xcons/LP.
+- **Batch xcons** — `answer_questions_batch()` + `gates.xcons.batch_size` (mặc định 8).
+- **Batch ITM** — `embed_images_batch()` + `gates.itm.batch_size` (mặc định 32).
+- **LP reuse xcons** — `_student_answer` từ xcons; LP chỉ 1 forward corrupt (không lặp clean).
+- Tune `batch_size` theo VRAM; giảm nếu OOM.
 4. **3 pass tuần tự** — conf → itm → xcons; CLIP + BLIP có thể cùng chiếm VRAM.
 5. **Scale tuyến tính** — 51k QA từ ~17k ảnh unlabeled × `questions_per_image`; gấp đôi synthetic → gấp đôi filter time.
 

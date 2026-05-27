@@ -41,11 +41,9 @@ def _format_qa_for_clip(record: dict) -> str:
     return f"{record['question']} {answer}".strip()
 
 
-def score_clip_itm(record: dict, image, clip: ClipLike) -> float:
-    """Cosine similarity between CLIP image embedding and "Q? A." text embedding."""
-    text = _format_qa_for_clip(record)
-    img_emb = np.asarray(clip.embed_image(image), dtype=np.float64).reshape(-1)
-    txt_emb = np.asarray(clip.embed_text(text), dtype=np.float64).reshape(-1)
+def _clip_cosine_score(img_emb: np.ndarray, txt_emb: np.ndarray) -> float:
+    img_emb = np.asarray(img_emb, dtype=np.float64).reshape(-1)
+    txt_emb = np.asarray(txt_emb, dtype=np.float64).reshape(-1)
     ni = np.linalg.norm(img_emb)
     nt = np.linalg.norm(txt_emb)
     if ni == 0 or nt == 0:
@@ -54,14 +52,46 @@ def score_clip_itm(record: dict, image, clip: ClipLike) -> float:
     return max(0.0, min(1.0, (cos + 1.0) / 2.0))
 
 
+def score_clip_itm(record: dict, image, clip: ClipLike) -> float:
+    """Cosine similarity between CLIP image embedding and "Q? A." text embedding."""
+    text = _format_qa_for_clip(record)
+    img_emb = clip.embed_image(image)
+    txt_emb = clip.embed_text(text)
+    return _clip_cosine_score(img_emb, txt_emb)
+
+
+def score_clip_itm_from_image_emb(record: dict, img_emb, clip: ClipLike) -> float:
+    """ITM score when the image embedding is already computed (e.g. batched)."""
+    text = _format_qa_for_clip(record)
+    txt_emb = clip.embed_text(text)
+    return _clip_cosine_score(img_emb, txt_emb)
+
+
 class StudentLike(Protocol):
     def answer_question(self, image, question: str) -> str: ...
 
 
-def score_xcons(record: dict, image, student: StudentLike, sbert) -> float:
-    """Cross-consistency: frozen Student zero-shot answer vs pseudo-answer."""
+def _pseudo_answer(record: dict) -> str:
     answer = record["answer"]
     if isinstance(answer, list):
-        answer = answer[0] if answer else ""
-    predicted = student.answer_question(image, record["question"])
-    return max_match(predicted, answer, sbert_model=sbert)
+        return answer[0] if answer else ""
+    return str(answer)
+
+
+def score_xcons(
+    record: dict,
+    image,
+    student: StudentLike,
+    sbert,
+    *,
+    predicted: str | None = None,
+) -> tuple[float, str]:
+    """Cross-consistency: frozen Student zero-shot answer vs pseudo-answer.
+
+    Returns (score, student_prediction). Pass ``predicted`` to skip a forward pass.
+    """
+    answer = _pseudo_answer(record)
+    if predicted is None:
+        predicted = student.answer_question(image, record["question"])
+    score = max_match(predicted, answer, sbert_model=sbert)
+    return float(score), predicted
