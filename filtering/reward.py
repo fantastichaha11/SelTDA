@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import string
-from typing import Iterable, Protocol
+from typing import Callable, Iterable, Protocol
 
+from filtering.matchers import max_match
 from filtering.strata import classify_question_type
 
 _PUNCT = str.maketrans("", "", string.punctuation)
@@ -43,3 +44,19 @@ def learnability(image, question: str, student: StudentProbLike) -> float:
     p = float(student.answer_prob(image, question))
     p = min(1.0, max(0.0, p))
     return 1.0 - p
+
+
+def lp_flip(image, question: str, answerer, corrupt: Callable, sbert) -> float:
+    """1.0 if the frozen answerer's answer CHANGES when the image is corrupted."""
+    a_full = answerer.answer_question(image, question)
+    a_corr = answerer.answer_question(corrupt(image), question)
+    same = max_match(a_full, a_corr, sbert_model=sbert)
+    return 1.0 - float(same)
+
+
+def grounding(image, question: str, answer: str, answerer, corrupt: Callable, sbert) -> float:
+    """XCONS_frozen (answerer agrees with pseudo-answer given image) x LP_flip."""
+    pred_full = answerer.answer_question(image, question)
+    xcons = float(max_match(pred_full, answer, sbert_model=sbert))
+    flip = lp_flip(image, question, answerer, corrupt, sbert)
+    return xcons * flip
