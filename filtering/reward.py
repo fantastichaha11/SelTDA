@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import string
-from typing import Iterable
+from typing import Iterable, Protocol
 
 from filtering.strata import classify_question_type
 
@@ -32,3 +32,14 @@ def repetition_penalty(question: str, seen: Iterable[str], threshold: float = 0.
         if jac >= threshold:
             return 1.0
     return 0.0
+
+
+class StudentProbLike(Protocol):
+    def answer_prob(self, image, question: str) -> float: ...
+
+
+def learnability(image, question: str, student: StudentProbLike) -> float:
+    """1 - max_prob of the frozen base student on (image, question). Higher = harder."""
+    p = float(student.answer_prob(image, question))
+    p = min(1.0, max(0.0, p))
+    return 1.0 - p
