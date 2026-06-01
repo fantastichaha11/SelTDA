@@ -1,0 +1,41 @@
+rounds: 3
+early_stop_delta: 0.5
+
+weak_types:
+  k: 3
+  student_base_eval: cache/evals/student_base/vqa_result.json
+  out: orchestration/state/weak_types.json
+
+grpo:
+  group_size: 8
+  top_p: 0.92
+  temperature: 1.0
+  max_length: 30
+  min_length: 5
+  kl_beta: 0.1
+  kl_beta_decay_gamma: 0.7
+  lr: 1.0e-6
+  epochs_per_round: 3
+  steps_per_epoch: 200
+
+reward:
+  w_type: 1.0
+  w_itm: 0.5
+  w_grounding: 1.0
+  w_learnability: 0.5
+  w_kl: 0.1
+  w_repetition: 0.3
+
+audit:
+  every_epoch: true
+  n_audit: 200
+  itm_large_ckpt: cache/judges/blip_itm_large.pth
+  vqa_judge_ckpt: cache/judges/blip_vqa_published.pth
+  hacking_eps: 0.02
+  itm_dominance_tau: 0.6
+  rollback_to_best_judge: true
+
+hrp:
+  adaptive_kl_c: 1.5
+  downweight_d: 0.5
+  auto_levels: [1, 2, 3]

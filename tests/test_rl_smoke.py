@@ -1,6 +1,6 @@
 import torch
 
-from orchestration.rl_teacher_loop import kl_beta_for_round, should_continue
+from orchestration.rl_teacher_loop import kl_beta_for_round, run_round, should_continue
 from train_vqg_rl import grpo_loss, group_advantages
 
 
@@ -30,3 +30,24 @@ def test_should_stop_below_delta():
 def test_kl_beta_decays_per_round():
     assert abs(kl_beta_for_round(beta0=0.1, gamma=0.7, r=1) - 0.1) < 1e-9
     assert abs(kl_beta_for_round(beta0=0.1, gamma=0.7, r=2) - 0.07) < 1e-9
+
+
+def test_run_round_mocked_subprocess(tmp_path):
+    calls = []
+
+    def fake_run(args, check=False):
+        calls.append(args[1] if len(args) > 1 else args[0])
+
+    def fake_eval(r):
+        return 61.5
+
+    acc = run_round(
+        1,
+        cfg=None,
+        run_subprocess=fake_run,
+        eval_fn=fake_eval,
+        state_dir=str(tmp_path),
+    )
+    assert acc == 61.5
+    assert any("generate_questions.py" in c for c in calls)
+    assert (tmp_path / "round_1.json").exists()
