@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import string
+from dataclasses import dataclass
 from typing import Callable, Iterable, Protocol
 
 from filtering.matchers import max_match
@@ -60,3 +61,34 @@ def grounding(image, question: str, answer: str, answerer, corrupt: Callable, sb
     xcons = float(max_match(pred_full, answer, sbert_model=sbert))
     flip = lp_flip(image, question, answerer, corrupt, sbert)
     return xcons * flip
+
+
+@dataclass
+class RewardConfig:
+    w_type: float = 1.0
+    w_itm: float = 0.5
+    w_grounding: float = 1.0
+    w_learnability: float = 0.5
+    w_kl: float = 0.1
+    w_repetition: float = 0.3
+
+
+@dataclass
+class RewardTerms:
+    type_match: float = 0.0
+    itm: float = 0.0
+    grounding: float = 0.0
+    learnability: float = 0.0
+    kl: float = 0.0
+    repetition: float = 0.0
+
+
+def compose_reward(t: RewardTerms, cfg: RewardConfig) -> float:
+    return (
+        cfg.w_type * t.type_match
+        + cfg.w_itm * t.itm
+        + cfg.w_grounding * t.grounding
+        + cfg.w_learnability * t.learnability
+        - cfg.w_kl * t.kl
+        - cfg.w_repetition * t.repetition
+    )

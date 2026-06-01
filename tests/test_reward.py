@@ -1,4 +1,13 @@
-from filtering.reward import grounding, learnability, lp_flip, repetition_penalty, type_match
+from filtering.reward import (
+    RewardConfig,
+    RewardTerms,
+    compose_reward,
+    grounding,
+    learnability,
+    lp_flip,
+    repetition_penalty,
+    type_match,
+)
 
 
 def test_type_match_in_weak_set():
@@ -75,3 +84,23 @@ def test_grounding_is_product_of_xcons_and_flip():
     ans = _FakeAnswerer({"img": "dog", "img_blank": "cat"})
     g = grounding("img", "What animal?", "dog", ans, _corrupt, _FakeSbert())
     assert g == 1.0
+
+
+def test_compose_reward_weighted_sum():
+    cfg = RewardConfig(
+        w_type=1.0,
+        w_itm=0.5,
+        w_grounding=1.0,
+        w_learnability=0.5,
+        w_kl=0.1,
+        w_repetition=0.3,
+    )
+    terms = RewardTerms(
+        type_match=1.0,
+        itm=0.6,
+        grounding=1.0,
+        learnability=0.8,
+        kl=2.0,
+        repetition=1.0,
+    )
+    assert abs(compose_reward(terms, cfg) - 2.2) < 1e-9
