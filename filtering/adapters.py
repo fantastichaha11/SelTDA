@@ -51,6 +51,56 @@ class OpenClipAdapter:
         return [emb[i].cpu().numpy() for i in range(emb.size(0))]
 
 
+class BlipItmJudgeAdapter:
+    """Frozen BLIP-ITM (large) for held-out image–text matching (AUD-1)."""
+
+    def __init__(
+        self,
+        checkpoint: str,
+        med_config: str = "configs/med_config.json",
+        image_size: int = 384,
+        vit: str = "large",
+        device: str = "cuda",
+    ):
+        import torch
+        import torch.nn.functional as F
+        from models.blip_itm import blip_itm
+
+        self._torch = torch
+        self._F = F
+        self.device = device
+        self.model = blip_itm(
+            pretrained=checkpoint,
+            med_config=med_config,
+            image_size=image_size,
+            vit=vit,
+        )
+        self.model = self.model.to(device).eval()
+        self.preprocess = transforms.Compose(
+            [
+                transforms.Resize(
+                    (image_size, image_size),
+                    interpolation=InterpolationMode.BICUBIC,
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.48145466, 0.4578275, 0.40821073),
+                    (0.26862954, 0.26130258, 0.27577711),
+                ),
+            ]
+        )
+
+    def match_prob(self, image, question: str, answer: str) -> float:
+        if isinstance(image, (str, bytes)):
+            image = Image.open(image).convert("RGB")
+        tensor = self.preprocess(image).unsqueeze(0).to(self.device)
+        caption = f"{question} {answer}".strip()
+        with self._torch.no_grad():
+            logits = self.model(tensor, [caption], match_head="itm")
+            prob = self._F.softmax(logits, dim=1)[0, 1].item()
+        return float(prob)
+
+
 class BlipStudentAdapter:
     """Frozen BLIP-VQA pretrained checkpoint for Gate 3 zero-shot scoring."""
 
@@ -89,6 +139,12 @@ class BlipStudentAdapter:
 
     def answer_question(self, image, question: str) -> str:
         return self.answer_questions_batch([image], [question])[0]
+
+    def answer_prob(self, image, question: str) -> float:
+        """Proxy for learnability: lower when the greedy answer is short/certain."""
+        ans = self.answer_question(image, question)
+        # Without token-level logits from generate(), use a stable heuristic.
+        return max(0.05, min(0.95, 0.3 + 0.05 * len(str(ans).split())))
 
     def answer_questions_batch(self, images: list, questions: list[str]) -> list[str]:
         if len(images) != len(questions):

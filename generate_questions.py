@@ -203,7 +203,17 @@ class ImagesForGenerationDS(Dataset):
         # Discover image paths by globbing the image root.
         if self.annotations_fname is None:
             logger.info("Globbing images from %s", self.image_root)
-            image_paths = list(glob.iglob(f"{self.image_root}/*.jpg"))
+            image_paths = []
+            for p in glob.iglob(f"{self.image_root}/*.jpg"):
+                image_paths.append(p)
+                if self.truncate_to is not None and len(image_paths) >= self.truncate_to:
+                    break
+            if self.truncate_to is not None and len(image_paths) >= self.truncate_to:
+                logger.info(
+                    "Stopped glob at %d images (truncate_to=%d)",
+                    len(image_paths),
+                    self.truncate_to,
+                )
         else:
             logger.info(
                 "Reading images from annotations file %s", self.annotations_fname

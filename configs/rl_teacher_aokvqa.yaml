@@ -1,13 +1,37 @@
 rounds: 3
 early_stop_delta: 0.5
+torch_home: /home/phongnguyen/SelTDA/cache/torch_home
+
+teacher:
+  pretrained: cache/teacher_weights/checkpoint_04.pth
+  med_config: configs/med_config.json
+  image_size: 384
+  vit: base
+  prompt: "Question:"
+
+data:
+  # COCO unlabeled2017 (SelTDA self-training); not A-OKVQA labeled train.json
+  image_folder: /home/phongnguyen/SelTDA/datasets/coco2017/unlabeled2017
+  annotations: null
+  truncate_to: 4000
+  num_workers: 2
+
+student:
+  checkpoint: cache/student_weights/student_base_rl.pth
+  med_config: configs/med_config.json
+  image_size: 384
 
 weak_types:
   k: 3
   student_base_eval: cache/evals/student_base/vqa_result.json
   out: orchestration/state/weak_types.json
+  default: [how_many, external_knowledge, yes_no]
 
 grpo:
+  batch_size: 4
+  max_images_per_step: 2
   group_size: 8
+  auto_tune: true
   top_p: 0.92
   temperature: 1.0
   max_length: 30
@@ -16,21 +40,33 @@ grpo:
   kl_beta_decay_gamma: 0.7
   lr: 1.0e-6
   epochs_per_round: 3
-  steps_per_epoch: 200
+  steps_per_epoch: 80
+  ref_on_cpu: true
+  resume_probe_peak_mib: 20515
+  round: 1
+  output_dir: orchestration/state
 
 reward:
+  device: auto
   w_type: 1.0
   w_itm: 0.5
   w_grounding: 1.0
   w_learnability: 0.5
   w_kl: 0.1
   w_repetition: 0.3
+  sbert_model: null
 
 audit:
   every_epoch: true
-  n_audit: 200
+  backfill_after_epoch: null
+  backfill_epochs: [0]
+  n_audit: 50
+  device: cpu
+  seed: 42
   itm_large_ckpt: cache/judges/blip_itm_large.pth
+  itm_vit: large
   vqa_judge_ckpt: cache/judges/blip_vqa_published.pth
+  vqa_judge_fallback: cache/student_weights/checkpoint_09.pth
   hacking_eps: 0.02
   itm_dominance_tau: 0.6
   rollback_to_best_judge: true
