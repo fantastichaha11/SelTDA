@@ -48,12 +48,17 @@ grpo:
 
 reward:
   device: auto
-  w_type: 1.0
+  w_type: 0.0
   w_itm: 0.5
   w_grounding: 1.0
   w_learnability: 0.5
   w_kl: 0.1
   w_repetition: 0.3
+  w_vqa: 0.5
+  vqascore_backend: t2v_metrics
+  vqascore_model: clip-flant5-xl
+  vqascore_device: cuda
+  vqascore_template: 'Does this figure show "{qa}"? Please answer yes or no.'
   sbert_model: null
 
 audit:

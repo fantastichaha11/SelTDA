@@ -1,0 +1,4 @@
+# Optional: C-RT+ VQAScore reward (CLIP-FlanT5). Not in main BLIP conda env.
+#   pip install -r requirements-vqascore.txt
+# First run downloads zhiqiulin/clip-flant5-xl from Hugging Face.
+t2v-metrics

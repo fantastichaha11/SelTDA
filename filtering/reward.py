@@ -71,6 +71,7 @@ class RewardConfig:
     w_learnability: float = 0.5
     w_kl: float = 0.1
     w_repetition: float = 0.3
+    w_vqa: float = 0.0
 
 
 @dataclass
@@ -81,6 +82,7 @@ class RewardTerms:
     learnability: float = 0.0
     kl: float = 0.0
     repetition: float = 0.0
+    vqascore: float = 0.0
 
 
 def compose_reward(t: RewardTerms, cfg: RewardConfig) -> float:
@@ -89,6 +91,17 @@ def compose_reward(t: RewardTerms, cfg: RewardConfig) -> float:
         + cfg.w_itm * t.itm
         + cfg.w_grounding * t.grounding
         + cfg.w_learnability * t.learnability
+        + cfg.w_vqa * t.vqascore
         - cfg.w_kl * t.kl
         - cfg.w_repetition * t.repetition
     )
+
+
+def score_vqascore(
+    image_path: str,
+    question: str,
+    answer: str,
+    adapter,
+) -> float:
+    """P(yes) from frozen VQAScore adapter (CLIP-FlanT5 via t2v_metrics)."""
+    return float(adapter.score(image_path, question, answer))

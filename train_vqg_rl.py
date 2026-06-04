@@ -375,6 +375,18 @@ class _ExactOnlySbert:
         return np.array([[1.0, 0.0] if t else [0.0, 1.0] for t in texts])
 
 
+def _resolve_vqascore_device(config, reward_device: str) -> str | None:
+    """Pick device for CLIP-FlanT5 VQAScore (default cuda when available)."""
+    raw = str(config.reward.get("vqascore_device", "cuda"))
+    if raw == "auto":
+        if reward_device.startswith("cuda"):
+            return reward_device
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return raw if raw not in ("", "none") else None
+
+
 def _resolve_reward_device(
     config, device: str, *, probe_peak_mib: int
 ) -> str:
@@ -403,14 +415,22 @@ def _resolve_reward_device(
 def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
     from filtering.adapters import BlipStudentAdapter, OpenClipAdapter
     from filtering.reward import RewardConfig, RewardTerms, compose_reward
-    from filtering.reward import grounding, learnability, repetition_penalty, type_match
+    from filtering.reward import (
+        grounding,
+        learnability,
+        repetition_penalty,
+        score_vqascore,
+        type_match,
+    )
     from filtering.scorers import score_clip_itm
+    from filtering.vqascore_adapter import DEFAULT_TEMPLATE, VQAScoreAdapter
 
     reward_device = _resolve_reward_device(
         config, device, probe_peak_mib=probe_peak_mib
     )
     logger.info("Reward models on %s", reward_device)
 
+    w_vqa = float(config.reward.get("w_vqa", 0.0))
     reward_cfg = RewardConfig(
         w_type=float(config.reward.w_type),
         w_itm=float(config.reward.w_itm),
@@ -418,7 +438,29 @@ def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
         w_learnability=float(config.reward.w_learnability),
         w_kl=float(config.reward.w_kl),
         w_repetition=float(config.reward.w_repetition),
+        w_vqa=w_vqa,
     )
+
+    vqascore_adapter = None
+    if w_vqa > 0.0:
+        backend = str(config.reward.get("vqascore_backend", "t2v_metrics"))
+        if backend.lower() not in ("none", "disabled", ""):
+            vqascore_adapter = VQAScoreAdapter(
+                model=str(config.reward.get("vqascore_model", "clip-flant5-xl")),
+                backend=backend,
+                device=_resolve_vqascore_device(config, reward_device),
+                template=str(
+                    config.reward.get("vqascore_template", DEFAULT_TEMPLATE)
+                ),
+            )
+            logger.info(
+                "VQAScore reward: model=%s backend=%s w_vqa=%.3f",
+                vqascore_adapter.model,
+                vqascore_adapter.backend,
+                w_vqa,
+            )
+        else:
+            logger.warning("w_vqa=%.3f but vqascore_backend=none; VQAScore skipped", w_vqa)
     weak_path = Path(config.weak_types.out)
     if weak_path.exists():
         weak_types = set(json.loads(weak_path.read_text()).get("weak_types", []))
@@ -453,6 +495,9 @@ def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
         g = grounding(img_path, question, answer, student, _corrupt_image, sbert)
         lrn = learnability(img_path, question, student)
         rep = repetition_penalty(question, seen)
+        vqa = 0.0
+        if vqascore_adapter is not None:
+            vqa = score_vqascore(img_path, question, answer, vqascore_adapter)
         terms = RewardTerms(
             type_match=type_match(question, answer, weak_types),
             itm=itm,
@@ -460,6 +505,7 @@ def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
             learnability=lrn,
             kl=0.0,
             repetition=rep,
+            vqascore=vqa,
         )
         breakdown = {
             "type_match": terms.type_match,
@@ -467,6 +513,7 @@ def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
             "grounding": terms.grounding,
             "learnability": terms.learnability,
             "repetition": terms.repetition,
+            "vqascore": terms.vqascore,
         }
         return compose_reward(terms, reward_cfg), breakdown
 
@@ -779,6 +826,7 @@ def _run_post_epoch_audit(
         "grounding": float(config.reward.w_grounding),
         "learnability": float(config.reward.w_learnability),
         "repetition": float(config.reward.w_repetition),
+        "vqascore": float(config.reward.get("w_vqa", 0.0)),
     }
     term_share: dict[str, float] = {}
     d_reward = d_judge = 0.0

@@ -108,7 +108,42 @@ pytest tests/test_scorers_clip.py -k "test_score_confidence"  # single test
 pytest tests/test_gate_registry.py tests/test_strata.py tests/test_coreset.py  # C1
 pytest tests/test_grounding_cascade.py tests/test_scorers_language_prior.py   # C3
 pytest tests/test_iterative_smoke.py tests/test_skill_gap.py                    # C2
+pytest tests/test_vqascore_reward.py tests/test_reward.py                     # C-RL / C-RT+
 bash scripts/check_invariants.sh   # must pass before PR (vs origin/master)
+```
+
+### 6. RL Teacher — C-RL / C-RT+ (`train_vqg_rl.py`)
+
+Online GRPO on the VQG teacher with reward **P2** (ITM + grounding + learnability − KL − repetition). **C-RT+** adds **VQAScore** (frozen [CLIP-FlanT5-xl](https://huggingface.co/zhiqiulin/clip-flant5-xl) via `t2v_metrics`, not BLIP-VQA). Spec: `docs/superpowers/specs/2026-06-04-reasoning-teacher-rl-cot-design.md`, baseline C-RL: `docs/superpowers/specs/2026-06-01-rl-teacher-grpo-design.md`.
+
+**Optional dependency** (separate from main BLIP conda env):
+
+```bash
+pip install -r requirements-vqascore.txt   # t2v-metrics; first run downloads HF weights
+```
+
+**Run GRPO** (default config on `feat/iterative-seltda`):
+
+```bash
+python train_vqg_rl.py --config configs/rl_teacher_aokvqa.yaml \
+  --overrides wandb=false torch_home=$(pwd)/cache/torch_home
+```
+
+**Ablations / overrides:**
+
+```bash
+# C-RL without VQAScore
+python train_vqg_rl.py --config configs/rl_teacher_aokvqa.yaml \
+  --overrides reward.w_vqa=0 wandb=false
+
+# OOM: move VQAScore off GPU
+python train_vqg_rl.py --config configs/rl_teacher_aokvqa.yaml \
+  --overrides reward.vqascore_device=cpu wandb=false
+```
+
+Config highlights (`configs/rl_teacher_aokvqa.yaml`): `reward.w_vqa`, `reward.vqascore_model` (`clip-flant5-xl`), `reward.vqascore_device` (`cuda`), `reward.w_type: 0` (weak-type off for now). Epoch audit uses **BLIP-ITM-large + BLIP-VQA published** (`filtering/audit.py`) — independent of the VQAScore reward term.
+
+Code: `filtering/reward.py` (`compose_reward`, `w_vqa`), `filtering/vqascore_adapter.py`, `train_vqg_rl.py` (`build_reward_fn`).
 ```
 
 ## Thesis feature branches (C1 / C2 / C3)
@@ -117,7 +152,7 @@ bash scripts/check_invariants.sh   # must pass before PR (vs origin/master)
 |--------|--------------|-------------------|-------------|
 | `feat/pseudo-label-filter` | **C1** Structured curation | Gate registry (REG-1), TS-1 (`filtering/strata.py`), CS-X (`filtering/coreset.py`), `configs/filter_pseudo_{stratified,coreset}.yaml`, `scripts/random_subsample_control.py`, `scripts/sweep_synth_ratio.sh` | `docs/superpowers/specs/2026-05-27-c1-*.md`, `plans/2026-05-27-c1-*.md` |
 | `feat/grounding-gates` | **C3** Grounding gates | LP-1 (`filtering/scorers_language_prior.py`), KC-1 + Wikipedia (`filtering/retrieval/`, `scorers_knowledge.py`), `configs/filter_pseudo_grounding.yaml`, `GATE_ORDER` += `lp`, `kcons` | `docs/superpowers/specs/2026-05-27-c3-*.md`, `plans/2026-05-27-c3-*.md` |
-| `feat/iterative-seltda` | **C2** Closed-loop | `orchestration/` (IT-1, J-1), TC-1 in `generate_questions.py`, `orchestration/iterative_aokvqa.yaml`, `scripts/run_iterative_round.sh` | `docs/superpowers/specs/2026-05-27-c2-*.md`, `plans/2026-05-27-c2-*.md` |
+| `feat/iterative-seltda` | **C2** Closed-loop + **C-RL / C-RT+** | `orchestration/`, `train_vqg_rl.py`, `filtering/reward.py`, `filtering/vqascore_adapter.py`, `configs/rl_teacher_aokvqa.yaml`, TC-1, `scripts/run_iterative_round.sh` | `docs/superpowers/specs/2026-05-27-c2-*.md`, `2026-06-01-rl-teacher-grpo-design.md`, `2026-06-04-reasoning-teacher-rl-cot-design.md` |
 
 **Fork:** C2 and C3 branch from C1 after gate registry. **Recommended merge order:** `feat/pseudo-label-filter` → `feat/grounding-gates` → `feat/iterative-seltda`.
 
@@ -147,6 +182,8 @@ bash scripts/check_invariants.sh   # must pass before PR (vs origin/master)
 4. J-1 staged curriculum: `bash scripts/run_iterative_round.sh` → `synthetic_easy.json`, `synthetic_hard.json`, `synthetic_staged.json` (merge 1:3 easy:hard)
 5. Tests: `pytest -m "not slow" tests/test_skill_gap.py tests/test_merge_pools.py tests/test_type_schedule.py tests/test_iterative_smoke.py -q`
 6. `train_vqg_config` in YAML is optional — orchestrator skips if missing
+7. **C-RT+ GRPO teacher**: `pip install -r requirements-vqascore.txt` then `python train_vqg_rl.py --config configs/rl_teacher_aokvqa.yaml --overrides wandb=false` (see §6 above)
+8. Tests: `pytest -m "not slow" tests/test_vqascore_reward.py tests/test_reward.py -q`
 
 ### Verify on any feature branch
 
@@ -195,6 +232,8 @@ Cascade via `filtering/gate_registry.py` (`GATE_ORDER`, `enabled_gate_names`, `a
 
 `filtering/gates.py`: `apply_gates` delegates to `apply_cascade` (keeps `GateThresholds` API). CS-X: `coreset.py`. `adapters.py` wraps BLIP/OpenCLIP; `report.py` builds filter diagnostics.
 
+**C-RL reward** (`filtering/reward.py`, `train_vqg_rl.py`): P2 terms + optional **VQAScore** (`filtering/vqascore_adapter.py` → `t2v_metrics`, CLIP-FlanT5). **Audit** (`filtering/audit.py`): held-out ITM-large + BLIP-VQA match for hacking detection (not the VQAScore reward model).
+
 ### Checkpoints
 Saved as `checkpoint_XX.pth` dicts containing `model`, `optimizer`, `config`, `epoch`. `checkpoint_utils.py` handles `--resume auto` (picks latest by epoch number) and explicit path resume. Only `train_vqa.py` currently supports resume; `train_vqg.py` does not.
 
@@ -210,3 +249,5 @@ Saved as `checkpoint_XX.pth` dicts containing `model`, `optimizer`, `config`, `e
 - **A-OKVQA eval set**: the public test set requires server-side scoring. For local evaluation, pass `--overrides use_validation_set_as_test_set=true`.
 - **`train_vqg.py` does not support `--resume`**; only `train_vqa.py` does.
 - **Filter debug mode**: add `--overrides scoring_only=true` to `filter_pseudo.py` to compute and attach scores to all records without discarding any.
+- **C-RT+ VQAScore**: needs `pip install -r requirements-vqascore.txt`. Default `reward.vqascore_device=cuda` (~12–16 GB extra with `clip-flant5-xl`); use `reward.vqascore_device=cpu` or `reward.w_vqa=0` if OOM. Do not use BLIP student checkpoint as VQAScore — wrong training objective vs Lin et al. VQAScore.
+- **`train_vqg_rl.py`**: GRPO teacher only; round orchestration may call `scripts/run_iterative_round.sh` / `orchestration/`. Weak-type reward (`w_type`) currently off in `rl_teacher_aokvqa.yaml`.
