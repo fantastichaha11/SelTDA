@@ -39,11 +39,19 @@ def main():
     config = OmegaConf.load(ROOT / args.config)
     config.use_validation_set_as_test_set = True
     config.pretrained = args.checkpoint
-    config.batch_size_test = int(config.get("batch_size_test", 16))
+    # MC eval indexes annotations by loader step; must be batch_size=1 (see aokvqa_mc_eval.ipynb).
+    config.batch_size_test = 1
 
     device = args.device if torch.cuda.is_available() else "cpu"
     _, val_ds = create_dataset("aokvqa", config)
-    val_loader = create_loader([val_ds], [None], [config.batch_size_test], [4], [False])[1]
+    val_loader = create_loader(
+        [val_ds],
+        [None],
+        [config.batch_size_test],
+        [0],
+        [False],
+        [None],
+    )[0]
 
     model = blip_vqa(
         pretrained=args.checkpoint,

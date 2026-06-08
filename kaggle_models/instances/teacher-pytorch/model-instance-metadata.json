@@ -1,0 +1,14 @@
+{
+  "ownerSlug": "phong2004",
+  "modelSlug": "seltda-teacher-vqg",
+  "instanceSlug": "default",
+  "framework": "PyTorch",
+  "overview": "BLIP-based Visual Question Generation (VQG) teacher for SelTDA on A-OKVQA.",
+  "usage": "## Load locally\n\n```bash\npython generate_questions.py \\\n  --config configs/generate_questions_aokvqa.yaml \\\n  --overrides pretrained=<path-to-checkpoint.pth>\n```\n\nEach Kaggle version maps to one `.pth` (see version notes).",
+  "licenseName": "Apache 2.0",
+  "fineTunable": true,
+  "trainingData": [],
+  "modelInstanceType": "BaseModel",
+  "baseModelInstanceId": 0,
+  "externalBaseModelUrl": ""
+}

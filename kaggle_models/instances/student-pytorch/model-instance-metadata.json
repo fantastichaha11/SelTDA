@@ -1,0 +1,14 @@
+{
+  "ownerSlug": "phong2004",
+  "modelSlug": "seltda-student-vqa",
+  "instanceSlug": "default",
+  "framework": "PyTorch",
+  "overview": "BLIP-based VQA student for SelTDA on A-OKVQA.",
+  "usage": "## Load locally\n\n```bash\npython -m torch.distributed.run --nproc_per_node=1 train_vqa.py \\\n  --config configs/aokvqa.yaml \\\n  --overrides pretrained=<path-to-checkpoint.pth> wandb=false\n```\n\nEach Kaggle version maps to one `.pth` (see version notes).",
+  "licenseName": "Apache 2.0",
+  "fineTunable": true,
+  "trainingData": [],
+  "modelInstanceType": "BaseModel",
+  "baseModelInstanceId": 0,
+  "externalBaseModelUrl": ""
+}

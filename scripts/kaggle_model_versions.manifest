@@ -1,0 +1,16 @@
+# model_kind|version_id|local_relpath|upload_filename|version_notes
+teacher|published-epoch04|cache/teacher_weights/checkpoint_04.pth|checkpoint_04.pth|Official SelTDA teacher (epoch 4). BLIP VQG A-OKVQA.
+teacher|iterative-round1-final|orchestration/state/teacher_1.pth|teacher_1.pth|RL round 1 final teacher (epoch 2, mean_reward~1.62).
+teacher|iterative-round1-best|orchestration/state/teacher_1_best.pth|teacher_1_best.pth|RL round 1 best validation checkpoint.
+teacher|iterative-round1-epoch0|orchestration/state/teacher_1_epoch0.pth|teacher_1_epoch0.pth|RL round 1 after epoch 0 (mean_reward~1.24).
+teacher|iterative-round1-epoch1|orchestration/state/teacher_1_epoch1.pth|teacher_1_epoch1.pth|RL round 1 after epoch 1 (mean_reward~1.59).
+teacher|iterative-round1-epoch2|orchestration/state/teacher_1_epoch2.pth|teacher_1_epoch2.pth|RL round 1 after epoch 2 (mean_reward~1.62).
+teacher|crt-plus-round1-final|orchestration/state/archive_vqascore_20260605/teacher_1.pth|teacher_1.pth|C-RT+ GRPO teacher (w_vqa=0.5, clip-flant5-xl). Final after HRP rollback to best. mean_reward~1.02.
+teacher|crt-plus-round1-best|orchestration/state/archive_vqascore_20260605/teacher_1_best.pth|teacher_1_best.pth|C-RT+ best checkpoint (epoch 1, judge~0.40, mean_reward~1.00).
+teacher|crt-plus-round1-epoch0|orchestration/state/archive_vqascore_20260605/teacher_1_epoch0.pth|teacher_1_epoch0.pth|C-RT+ after epoch 0 (mean_reward~0.98, judge~0.35).
+teacher|crt-plus-round1-epoch1|orchestration/state/archive_vqascore_20260605/teacher_1_epoch1.pth|teacher_1_epoch1.pth|C-RT+ after epoch 1 (mean_reward~1.00, judge~0.40).
+teacher|crt-plus-round1-epoch2|orchestration/state/archive_vqascore_20260605/teacher_1_epoch2.pth|teacher_1_epoch2.pth|C-RT+ after epoch 2 (mean_reward~1.02, judge~0.36).
+student|published-epoch09|cache/student_weights/checkpoint_09.pth|checkpoint_09.pth|Official SelTDA student (epoch 9). Self-trained on train+synthetic.
+student|rl-base-filter|cache/student_weights/student_base_rl.pth|student_base_rl.pth|RL pipeline xcons gate student (run_rl_round1_student.sh).
+student|rl-round1-epoch00|cache/rl_round1_student/checkpoint_00.pth|checkpoint_00.pth|RL round 1 student epoch 0.
+student|rl-round1-epoch01|cache/rl_round1_student/checkpoint_01.pth|checkpoint_01.pth|RL round 1 student epoch 1.

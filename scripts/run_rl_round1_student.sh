@@ -6,14 +6,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
 export PYTHONNOUSERSITE=1
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# expandable_segments breaks generate_questions (cublasLtCreate); enable only for train if needed
+# export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 COCO_DIR="${ROOT}/datasets/coco2017"
 COCO_UNLABELED="${COCO_DIR}/unlabeled2017"
 AOKVQA_DIR="${ROOT}/datasets/aokvqa"
-TEACHER_CKPT="${ROOT}/orchestration/state/teacher_1.pth"
-STUDENT_INIT="${STUDENT_INIT:-${ROOT}/cache/student_weights/checkpoint_09.pth}"
+TEACHER_CKPT="${TEACHER_CKPT:-${ROOT}/orchestration/state/teacher_1.pth}"
+# BLIP base init (not published SelTDA student / not --resume from output_dir)
+STUDENT_INIT="${STUDENT_INIT:-https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_capfilt_large.pth}"
 OUTPUT_DIR="${ROOT}/cache/rl_round1_student"
+FRESH_TRAIN="${FRESH_TRAIN:-0}"
 EVAL_DIR="${ROOT}/cache/rl_round1_evals"
 MED_CONFIG="${ROOT}/configs/med_config.json"
 LOG="${ROOT}/logs/rl_round1_pipeline.log"
@@ -93,7 +96,11 @@ if [[ ! -f "${FILTERED}" ]]; then
 fi
 
 if [[ "${SKIP_TRAIN}" != "1" ]]; then
-  log "Train student: train + synthetic_data_rl -> ${OUTPUT_DIR}"
+  if [[ "${FRESH_TRAIN}" == "1" ]]; then
+    log "FRESH_TRAIN=1 — removing old checkpoints in ${OUTPUT_DIR}"
+    rm -f "${OUTPUT_DIR}"/checkpoint_*.pth
+  fi
+  log "Train student: train + synthetic_data_rl -> ${OUTPUT_DIR} (init=${STUDENT_INIT})"
   TRAIN_OVERRIDES=(
     "vqa_root='${COCO_DIR}'"
     "ann_root='${AOKVQA_DIR}'"

@@ -1,0 +1,14 @@
+{
+  "ownerSlug": "phong2004",
+  "modelSlug": "seltda-student-vqa",
+  "instanceSlug": "rl-base-filter",
+  "framework": "PyTorch",
+  "overview": "SelTDA student (VQA) variant rl-base-filter. RL pipeline xcons gate student (run_rl_round1_student.sh).",
+  "usage": "## Checkpoint\n\nLoad with SelTDA scripts; see version notes in model description.\n\n```bash\npython generate_questions.py --overrides pretrained=<path>   # teacher\npython -m torch.distributed.run --nproc_per_node=1 train_vqa.py --overrides pretrained=<path>  # student\n```",
+  "licenseName": "Apache 2.0",
+  "fineTunable": true,
+  "trainingData": [],
+  "modelInstanceType": "BaseModel",
+  "baseModelInstanceId": 0,
+  "externalBaseModelUrl": ""
+}

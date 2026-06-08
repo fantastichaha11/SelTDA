@@ -131,7 +131,7 @@ class BLIP_VQA(nn.Module):
                 }
 
                 bos_ids = torch.full(
-                    (image.size(0), 1),
+                    (image.size(0) * num_beams, 1),
                     fill_value=self.tokenizer.bos_token_id,
                     device=image.device,
                 )

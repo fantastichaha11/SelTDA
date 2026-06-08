@@ -1,0 +1,14 @@
+{
+  "ownerSlug": "phong2004",
+  "modelSlug": "seltda-teacher-vqg",
+  "instanceSlug": "iterative-round1-final",
+  "framework": "PyTorch",
+  "overview": "SelTDA teacher (VQG) variant iterative-round1-final. RL round 1 final teacher (epoch 2, mean_reward~1.62).",
+  "usage": "## Checkpoint\n\nLoad with SelTDA scripts; see version notes in model description.\n\n```bash\npython generate_questions.py --overrides pretrained=<path>   # teacher\npython -m torch.distributed.run --nproc_per_node=1 train_vqa.py --overrides pretrained=<path>  # student\n```",
+  "licenseName": "Apache 2.0",
+  "fineTunable": true,
+  "trainingData": [],
+  "modelInstanceType": "BaseModel",
+  "baseModelInstanceId": 0,
+  "externalBaseModelUrl": ""
+}

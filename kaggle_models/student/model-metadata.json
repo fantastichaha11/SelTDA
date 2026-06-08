@@ -1,0 +1,10 @@
+{
+  "ownerSlug": "phong2004",
+  "title": "SelTDA Student (VQA)",
+  "slug": "seltda-student-vqa",
+  "subtitle": "BLIP visual question answering — A-OKVQA",
+  "isPrivate": false,
+  "description": "Student for SelTDA (CVPR 2023): BLIP VQA on A-OKVQA. Config: configs/aokvqa.yaml; train with train_files=[train,synthetic_data].\n\n## Versions\n| ID | Local file | Notes |\n| published-epoch09 | cache/student_weights/checkpoint_09.pth | Official release epoch 9 |\n| rl-base-filter | cache/student_weights/student_base_rl.pth | xcons gate for RL pipeline |\n| rl-round1-epoch00 | cache/rl_round1_student/checkpoint_00.pth | RL round 1 epoch 0 |\n| rl-round1-epoch01 | cache/rl_round1_student/checkpoint_01.pth | RL round 1 epoch 1 |",
+  "publishTime": "",
+  "provenanceSources": "https://github.com/salesforce/BLIP, SelTDA CVPR 2023"
+}

@@ -1,0 +1,10 @@
+{
+  "ownerSlug": "phong2004",
+  "title": "SelTDA Teacher (VQG)",
+  "slug": "seltda-teacher-vqg",
+  "subtitle": "BLIP visual question generation — A-OKVQA",
+  "isPrivate": false,
+  "description": "Teacher for SelTDA (CVPR 2023): BLIP VQG on A-OKVQA. Config: configs/aokvqg.yaml; generate: configs/generate_questions_aokvqa.yaml.\n\n## Versions\n| ID | Local file | Notes |\n| published-epoch04 | cache/teacher_weights/checkpoint_04.pth | Official release epoch 4 |\n| iterative-round1-final | orchestration/state/teacher_1.pth | RL round 1 final |\n| iterative-round1-best | orchestration/state/teacher_1_best.pth | Best val round 1 |\n| iterative-round1-epoch0 | orchestration/state/teacher_1_epoch0.pth | RL epoch 0 |\n| iterative-round1-epoch1 | orchestration/state/teacher_1_epoch1.pth | RL epoch 1 |\n| iterative-round1-epoch2 | orchestration/state/teacher_1_epoch2.pth | RL epoch 2 |",
+  "publishTime": "",
+  "provenanceSources": "https://github.com/salesforce/BLIP, SelTDA CVPR 2023"
+}

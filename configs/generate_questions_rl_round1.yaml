@@ -12,9 +12,9 @@ torch_home: /home/phongnguyen/SelTDA/cache/torch_home
 vit: base
 questions_per_image: 2
 multimodal_encoder_decoder_config: /home/phongnguyen/SelTDA/configs/med_config.json
-batch_size: 64
+batch_size: 16
 truncate_to: 17000
-num_workers: 8
+num_workers: 4
 top_p: 0.9
 vqa_dataset_origin: vqa
 dry_run: false

@@ -1,0 +1,8 @@
+{
+  "title": "SelTDA Teacher VQG Checkpoints",
+  "id": "phong2004/seltda-teacher-vqg-ckpt",
+  "subtitle": "BLIP VQG teacher weights for SelTDA A-OKVQA pipeline",
+  "description": "Checkpoint index for SelTDA teacher (VQG). Upload .pth per version notes. Versions: published-epoch04, iterative-round1-final, iterative-round1-best, iterative-round1-epoch0/1/2. See docs/kaggle_models.md.",
+  "licenses": [{"name": "CC0-1.0"}],
+  "keywords": ["computer vision", "vqa", "blip"]
+}

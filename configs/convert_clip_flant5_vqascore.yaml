@@ -1,0 +1,9 @@
+ann_root: /home/phongnguyen/SelTDA/datasets/aokvqa
+vqa_root: /home/phongnguyen/SelTDA/datasets/coco2017
+splits: [train, val]
+mode: vqascore
+image_prefix: coco/train2017
+output: /home/phongnguyen/SelTDA/datasets/clip_flant5/aokvqa_vqascore.json
+synthetic: datasets/aokvqa/synthetic_data.json
+vqascore_template: 'Does this figure show "{qa}"? Please answer yes or no.'
+skip_missing_images: true

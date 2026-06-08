@@ -72,6 +72,7 @@ class RewardConfig:
     w_kl: float = 0.1
     w_repetition: float = 0.3
     w_vqa: float = 0.0
+    w_conf: float = 0.0
 
 
 @dataclass
@@ -83,6 +84,7 @@ class RewardTerms:
     kl: float = 0.0
     repetition: float = 0.0
     vqascore: float = 0.0
+    gen_logprob: float = 0.0
 
 
 def compose_reward(t: RewardTerms, cfg: RewardConfig) -> float:
@@ -92,6 +94,7 @@ def compose_reward(t: RewardTerms, cfg: RewardConfig) -> float:
         + cfg.w_grounding * t.grounding
         + cfg.w_learnability * t.learnability
         + cfg.w_vqa * t.vqascore
+        + cfg.w_conf * t.gen_logprob
         - cfg.w_kl * t.kl
         - cfg.w_repetition * t.repetition
     )
@@ -105,3 +108,20 @@ def score_vqascore(
 ) -> float:
     """P(yes) from frozen VQAScore adapter (CLIP-FlanT5 via t2v_metrics)."""
     return float(adapter.score(image_path, question, answer))
+
+
+def score_vqascore_margin(
+    image_path: str,
+    question: str,
+    answer: str,
+    adapter,
+) -> float:
+    """P(yes) - P(no) from frozen VQAScore adapter."""
+    return float(adapter.score_yes_no_margin(image_path, question, answer))
+
+
+def score_teacher_conf(gen_logprob: float | None) -> float:
+    """Raw teacher mean log-prob (gate 1 conf signal); 0.0 when missing."""
+    if gen_logprob is None:
+        return 0.0
+    return float(gen_logprob)

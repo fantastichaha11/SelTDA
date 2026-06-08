@@ -234,8 +234,18 @@ def _grpo_step_batch(
     for bi in range(b):
         row = []
         for gi in range(g):
-            out = outputs[bi * g + gi]
-            row.append(float(reward_fn(image_paths[bi], *_parse_qa(out))))
+            idx = bi * g + gi
+            out = outputs[idx]
+            lp = float(logp[idx].detach().cpu())
+            row.append(
+                float(
+                    reward_fn(
+                        image_paths[bi],
+                        *_parse_qa(out),
+                        gen_logprob=lp,
+                    )
+                )
+            )
         reward_rows.append(row)
     rewards = torch.tensor(reward_rows, device=device, dtype=torch.float32)
     adv = group_advantages_batched(rewards).reshape(-1)
@@ -412,7 +422,102 @@ def _resolve_reward_device(
     return "cpu"
 
 
+def _vqascore_checkpoint(config) -> str | None:
+    raw = config.reward.get("vqascore_checkpoint")
+    if raw in (None, "", "null"):
+        return None
+    return str(raw)
+
+
+def _build_vqascore_conf_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
+    """VQAScore-only GRPO: P(yes)-P(no) + teacher gen_logprob (gate 1 conf)."""
+    from filtering.reward import (
+        RewardConfig,
+        RewardTerms,
+        compose_reward,
+        score_teacher_conf,
+        score_vqascore_margin,
+    )
+    from filtering.vqascore_adapter import DEFAULT_TEMPLATE, VQAScoreAdapter
+
+    reward_device = _resolve_reward_device(
+        config, device, probe_peak_mib=probe_peak_mib
+    )
+    logger.info("Reward mode=vqascore_conf on %s", reward_device)
+
+    reward_cfg = RewardConfig(
+        w_type=0.0,
+        w_itm=0.0,
+        w_grounding=0.0,
+        w_learnability=0.0,
+        w_kl=0.0,
+        w_repetition=0.0,
+        w_vqa=float(config.reward.get("w_vqa", 1.0)),
+        w_conf=float(config.reward.get("w_conf", 1.0)),
+    )
+
+    backend = str(config.reward.get("vqascore_backend", "t2v_metrics"))
+    vqascore_adapter = VQAScoreAdapter(
+        model=str(config.reward.get("vqascore_model", "clip-flant5-xl")),
+        backend=backend,
+        device=_resolve_vqascore_device(config, reward_device),
+        template=str(config.reward.get("vqascore_template", DEFAULT_TEMPLATE)),
+        checkpoint=_vqascore_checkpoint(config),
+    )
+    logger.info(
+        "VQAScore conf reward: margin=yes-no w_vqa=%.3f w_conf=%.3f model=%s",
+        reward_cfg.w_vqa,
+        reward_cfg.w_conf,
+        vqascore_adapter.model,
+    )
+
+    image_root = Path(config.data.image_folder)
+
+    def _resolve(path: str):
+        p = Path(path)
+        if p.is_file():
+            return str(p)
+        return str(image_root / path)
+
+    def _score_terms(
+        image_path: str,
+        question: str,
+        answer: str,
+        *,
+        gen_logprob: float | None = None,
+    ) -> tuple[float, dict]:
+        img_path = _resolve(image_path)
+        vqa = score_vqascore_margin(img_path, question, answer, vqascore_adapter)
+        conf = score_teacher_conf(gen_logprob)
+        terms = RewardTerms(vqascore=vqa, gen_logprob=conf)
+        breakdown = {"vqascore_margin": vqa, "gen_logprob": conf}
+        return compose_reward(terms, reward_cfg), breakdown
+
+    def reward_fn(
+        image_path: str,
+        question: str,
+        answer: str,
+        *,
+        gen_logprob: float | None = None,
+    ) -> float:
+        total, _ = _score_terms(
+            image_path, question, answer, gen_logprob=gen_logprob
+        )
+        return total
+
+    def audit_terms_fn(image_path: str, question: str, answer: str) -> tuple[float, dict]:
+        return _score_terms(image_path, question, answer, gen_logprob=None)
+
+    return reward_fn, reward_cfg, audit_terms_fn
+
+
 def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
+    mode = str(config.reward.get("mode", "full")).lower().replace("-", "_")
+    if mode in ("vqascore_conf", "vqascore_only"):
+        return _build_vqascore_conf_reward_fn(
+            config, device=device, probe_peak_mib=probe_peak_mib
+        )
+
     from filtering.adapters import BlipStudentAdapter, OpenClipAdapter
     from filtering.reward import RewardConfig, RewardTerms, compose_reward
     from filtering.reward import (
@@ -452,6 +557,7 @@ def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
                 template=str(
                     config.reward.get("vqascore_template", DEFAULT_TEMPLATE)
                 ),
+                checkpoint=_vqascore_checkpoint(config),
             )
             logger.info(
                 "VQAScore reward: model=%s backend=%s w_vqa=%.3f",
@@ -517,7 +623,13 @@ def build_reward_fn(config, *, device: str, probe_peak_mib: int = 0):
         }
         return compose_reward(terms, reward_cfg), breakdown
 
-    def reward_fn(image_path: str, question: str, answer: str) -> float:
+    def reward_fn(
+        image_path: str,
+        question: str,
+        answer: str,
+        *,
+        gen_logprob: float | None = None,
+    ) -> float:
         total, _ = _score_terms(image_path, question, answer, seen_questions)
         seen_questions.append(question)
         return total
@@ -583,14 +695,16 @@ def build_loader(config, batch_size: int) -> DataLoader:
     )
 
 
-def build_teacher(config, *, device: str, trainable: bool = True):
+def build_teacher(
+    config, *, device: str, trainable: bool = True, pretrained: str | None = None
+):
     from generate_questions import build_model_from_config
 
     from omegaconf import OmegaConf
 
     model_cfg = OmegaConf.create(
         {
-            "pretrained": str(config.teacher.pretrained),
+            "pretrained": str(pretrained or config.teacher.pretrained),
             "multimodal_encoder_decoder_config": str(config.teacher.med_config),
             "image_size": int(config.teacher.image_size),
             "vit": str(config.teacher.vit),
@@ -827,6 +941,7 @@ def _run_post_epoch_audit(
         "learnability": float(config.reward.w_learnability),
         "repetition": float(config.reward.w_repetition),
         "vqascore": float(config.reward.get("w_vqa", 0.0)),
+        "gen_logprob": float(config.reward.get("w_conf", 0.0)),
     }
     term_share: dict[str, float] = {}
     d_reward = d_judge = 0.0
@@ -868,6 +983,19 @@ def _run_post_epoch_audit(
         )
         cfg.kl_beta = hrp_state.kl_beta
         reward_cfg.w_itm = hrp_state.w_itm
+        if prev_audit:
+            judge_drop_eps = float(audit_cfg.get("stop_on_judge_drop_eps", 0.01))
+            if (
+                bool(audit_cfg.get("stop_on_judge_drop", False))
+                and d_judge < -judge_drop_eps
+            ):
+                action = "early_stop_judge_drop"
+            elif bool(audit_cfg.get("stop_on_reward_plateau", False)):
+                reward_drop_eps = float(
+                    audit_cfg.get("stop_on_reward_plateau_eps", 0.05)
+                )
+                if d_reward < -reward_drop_eps:
+                    action = "early_stop_reward_plateau"
 
     audit_row = {
         "round": round_id,
@@ -903,7 +1031,11 @@ def _run_post_epoch_audit(
         hacking,
         action,
     )
-    early_stop = action == "early_stop_rollback"
+    early_stop = action in {
+        "early_stop_rollback",
+        "early_stop_judge_drop",
+        "early_stop_reward_plateau",
+    }
     return hrp_state, reward_cfg, cfg, early_stop
 
 
@@ -958,8 +1090,20 @@ def train_grpo_round(config, args) -> Path:
     elif start_epoch > 0 and ckpt_path.is_file():
         logger.info("Resuming from %d completed epochs in %s", start_epoch, log_path)
 
-    logger.info("Loading policy teacher from %s", config.teacher.pretrained)
-    policy = build_teacher(config, device=device, trainable=True)
+    policy_pretrained = str(config.teacher.pretrained)
+    if start_epoch > 0 and ckpt_path.is_file():
+        policy_pretrained = str(ckpt_path)
+        logger.info(
+            "Continuing from epoch %d checkpoint %s (next epoch %d)",
+            start_epoch - 1,
+            ckpt_path,
+            start_epoch,
+        )
+    else:
+        logger.info("Loading policy teacher from %s", policy_pretrained)
+    policy = build_teacher(
+        config, device=device, trainable=True, pretrained=policy_pretrained
+    )
     optimizer = torch.optim.AdamW(
         [p for p in policy.parameters() if p.requires_grad], lr=cfg.lr
     )
@@ -974,9 +1118,10 @@ def train_grpo_round(config, args) -> Path:
             cfg.group_size = int(last.get("group_size", cfg.group_size))
             cfg.kl_beta = float(last.get("kl_beta", cfg.kl_beta))
             logger.info(
-                "Resume: skip probe, batch=%d group=%d start_epoch=%d",
+                "Resume: optimizer restored, batch=%d group=%d kl_beta=%.3f start_epoch=%d",
                 cfg.batch_size,
                 cfg.group_size,
+                cfg.kl_beta,
                 start_epoch,
             )
 
@@ -1033,6 +1178,8 @@ def train_grpo_round(config, args) -> Path:
     prev_audit = audit_history[-1] if audit_history else None
     hrp_state = HrpState(kl_beta=cfg.kl_beta, w_itm=float(reward_cfg.w_itm))
     best_judge = -1.0
+    if audit_history:
+        best_judge = max(float(r.get("mean_judge", -1.0)) for r in audit_history)
     best_epoch_ckpt = out_dir / f"teacher_{round_id}_best.pth"
 
     if start_epoch >= cfg.epochs_per_round:

@@ -1,0 +1,8 @@
+{
+  "title": "SelTDA Student VQA Checkpoints",
+  "id": "phong2004/seltda-student-vqa-ckpt",
+  "subtitle": "BLIP VQA student weights for SelTDA A-OKVQA pipeline",
+  "description": "Checkpoint index for SelTDA student (VQA). Upload .pth per version notes. Versions: published-epoch09, rl-base-filter, rl-round1-epoch00/01. See docs/kaggle_models.md.",
+  "licenses": [{"name": "CC0-1.0"}],
+  "keywords": ["computer vision", "vqa", "blip"]
+}
