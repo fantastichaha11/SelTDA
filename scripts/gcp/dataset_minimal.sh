@@ -5,8 +5,19 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${PROJECT_ROOT}"
 
+use_blip_python() {
+  export PATH="/opt/conda/bin:${PATH}"
+  # shellcheck source=/dev/null
+  source /opt/conda/etc/profile.d/conda.sh
+  if [ "${CONDA_DEFAULT_ENV:-}" != "blip" ]; then
+    conda activate blip
+  fi
+}
+
+use_blip_python
+
 ensure_gdown() {
-  command -v gdown &>/dev/null || pip install -q gdown
+  command -v gdown &>/dev/null || python -m pip install -q gdown
 }
 
 download_gdrive_file() {

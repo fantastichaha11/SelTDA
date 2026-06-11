@@ -9,9 +9,10 @@ export PATH="$HOME/google-cloud-sdk/bin:$PATH"
 # Tạo VM (zone có GPU L4 khả dụng, mặc định us-central1-a)
 bash scripts/gcp/create_vm_vqascore.sh
 
-# SSH / theo dõi
+# SSH — pipeline chạy dưới user SSH của bạn (không dùng sudo/ubuntu)
 gcloud compute ssh seltda-vqascore --zone=us-central1-a --project=thesis-497813
-sudo -u ubuntu tail -f /home/ubuntu/SelTDA/cache/logs/vqascore_run/pipeline.log
+cd ~/SelTDA && bash scripts/gcp/restart_pipeline.sh
+tail -f ~/SelTDA/cache/logs/vqascore_run/pipeline.log
 ```
 
 | Field | Value |
@@ -22,11 +23,16 @@ sudo -u ubuntu tail -f /home/ubuntu/SelTDA/cache/logs/vqascore_run/pipeline.log
 | Type | `g2-standard-8` + **1× NVIDIA L4** |
 | Boot disk | 200 GB |
 
-Chạy lại pipeline trên VM đã có:
+Dùng lại dataset đã tải bởi user khác (ví dụ `ubuntu`):
 
 ```bash
-cd ~/SelTDA && git pull && tmux new -s vqascore 'bash scripts/gcp/run_vqascore_pipeline.sh'
+git clone -b feat/pseudo-label-filter https://github.com/fantastichaha11/SelTDA.git ~/SelTDA
+ln -sfn /home/ubuntu/SelTDA/datasets ~/SelTDA/datasets
+ln -sfn /home/ubuntu/SelTDA/cache ~/SelTDA/cache   # optional: reuse checkpoints
+cd ~/SelTDA && git pull && bash scripts/gcp/restart_pipeline.sh
 ```
+
+Dừng pipeline: `tmux kill-session -t vqascore`
 
 ## Instance cũ (C2)
 

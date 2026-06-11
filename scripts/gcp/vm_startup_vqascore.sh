@@ -29,8 +29,5 @@ sudo -u "$(logname 2>/dev/null || echo ubuntu)" git checkout "${BRANCH}"
 sudo -u "$(logname 2>/dev/null || echo ubuntu)" git pull --ff-only origin "${BRANCH}" || true
 chmod +x scripts/gcp/*.sh
 
-RUN_USER="$(logname 2>/dev/null || echo ubuntu)"
-sudo -u "${RUN_USER}" tmux new-session -d -s vqascore \
-  "export PATH=/opt/conda/bin:\$PATH && source /opt/conda/etc/profile.d/conda.sh && cd ${REPO_DIR} && bash scripts/gcp/run_vqascore_pipeline.sh; echo EXIT=\$? | tee -a cache/logs/vqascore_run/exit_code.txt; exec bash"
-
-echo "VQAScore pipeline started in tmux session 'vqascore'" | tee /var/log/seltda-vqascore-startup.log
+echo "SelTDA cloned to ${REPO_DIR}. Start pipeline manually:" | tee /var/log/seltda-vqascore-startup.log
+echo "  cd ${REPO_DIR} && bash scripts/gcp/restart_pipeline.sh" | tee -a /var/log/seltda-vqascore-startup.log
