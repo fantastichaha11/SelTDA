@@ -80,6 +80,12 @@ download_gdrive_file "1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj" \
 download_gdrive_file "1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf" \
   "${AOKVQA_DIR}/synthetic_data_raw.json" "synthetic_data_raw.json"
 
-run_blip python convert_aokvqa.py --config configs/aokvqa.yaml
+if [ -f "${AOKVQA_DIR}/train.json" ] && [ -f "${AOKVQA_DIR}/val.json" ]; then
+  echo "[skip] A-OKVQA already converted (train.json + val.json)"
+else
+  run_blip python convert_aokvqa.py \
+    --config configs/aokvqa.yaml \
+    --overrides 'convert_splits=[train,val]'
+fi
 
 echo "dataset_minimal.sh complete"

@@ -122,7 +122,8 @@ def save_answer_list_as_json(annotation_root: Path):
 
 
 def main(config: DictConfig) -> None:
-    for split in ("train", "val", "test"):
+    splits = config.get("convert_splits", ["train", "val", "test"])
+    for split in splits:
         logger.info("Processing split %s", split)
         records = load_split(split, Path(config.ann_root))
         records = [convert_aokvqa_to_vqav2(_) for _ in records]
