@@ -25,8 +25,9 @@ bash scripts/gcp/dataset_minimal.sh
 if ! conda env list | grep -q '^vqascore '; then
   conda create -n vqascore python=3.10 -y
 fi
-run_vqascore pip install -q --upgrade pip
-run_vqascore pip install -q torch torchvision t2v-metrics omegaconf hydra-core pillow tqdm numpy
+run_vqascore pip install -q --upgrade pip setuptools wheel
+run_vqascore pip install -q torch torchvision
+run_vqascore pip install -q t2v-metrics omegaconf hydra-core pillow tqdm numpy
 
 SYNTH_IN="datasets/aokvqa/synthetic_data_raw.json"
 SYNTH_OUT="datasets/aokvqa/synthetic_data_vqascore.json"
