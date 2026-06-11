@@ -51,6 +51,56 @@ class OpenClipAdapter:
         return [emb[i].cpu().numpy() for i in range(emb.size(0))]
 
 
+class VQAScoreAdapter:
+    """CLIP-FlanT5 VQAScore via t2v_metrics (lazy import)."""
+
+    def __init__(
+        self,
+        model: str = "clip-flant5-xl",
+        device: str = "cuda",
+    ):
+        import t2v_metrics
+
+        self.model_name = model
+        self.device = device
+        self._scorer = t2v_metrics.VQAScore(model=model, device=device)
+
+    def score_pairs(
+        self, image_paths: list[str | Path], texts: list[str]
+    ) -> list[float]:
+        if len(image_paths) != len(texts):
+            raise ValueError("image_paths and texts must have the same length")
+        if not image_paths:
+            return []
+        paths = [str(p) for p in image_paths]
+        raw = self._scorer(images=paths, texts=texts)
+        return _tensor_scores_to_list(raw, len(paths))
+
+
+def _tensor_scores_to_list(raw, n: int) -> list[float]:
+    import torch
+
+    if isinstance(raw, torch.Tensor):
+        t = raw.detach().cpu()
+        if t.ndim == 2 and t.shape[0] == t.shape[1] == n:
+            return [float(t[i, i]) for i in range(n)]
+        if t.ndim == 1 and t.numel() == n:
+            return [float(t[i]) for i in range(n)]
+        if t.numel() == 1:
+            return [float(t.reshape(-1)[0])] * n
+        flat = t.reshape(-1)
+        return [float(flat[i]) for i in range(min(n, flat.numel()))]
+    if isinstance(raw, (list, tuple)):
+        out: list[float] = []
+        for item in raw:
+            if isinstance(item, torch.Tensor):
+                out.append(float(item.detach().cpu().reshape(-1)[0]))
+            else:
+                out.append(float(item))
+        return out[:n]
+    return [float(raw)] * n
+
+
 class BlipStudentAdapter:
     """Frozen BLIP-VQA pretrained checkpoint for Gate 3 zero-shot scoring."""
 

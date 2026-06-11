@@ -14,7 +14,7 @@ from PIL import Image
 from tqdm import tqdm
 
 import cli
-from filtering.adapters import BlipStudentAdapter, OpenClipAdapter
+from filtering.adapters import BlipStudentAdapter, OpenClipAdapter, VQAScoreAdapter
 from filtering.coreset import select_coreset
 from filtering.image_cache import ImageCache
 from filtering.gate_registry import apply_cascade, enabled_gate_names
@@ -28,6 +28,7 @@ from filtering.scorers import (
     score_confidence,
     score_xcons,
 )
+from filtering.scorers_vqascore import score_vqascore
 from filtering.strata import assign_types, thresholds_per_stratum
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,48 @@ def _run_gate_itm(records, image_cache: ImageCache, config) -> float:
     return thresholds_from_quantile(
         [r["scores"]["itm"] for r in records],
         keep_top=config.gates.itm.keep_top,
+    )
+
+
+def _run_gate_vqascore(
+    records, image_root: Path, config
+) -> float:
+    if not config.gates.vqascore.enabled:
+        for r in records:
+            _scores(r)["vqascore"] = 1.0
+        return float("-inf")
+
+    scorer = VQAScoreAdapter(
+        model=config.gates.vqascore.get("model", "clip-flant5-xl"),
+        device=config.device,
+    )
+    batch_size = _gate_batch_size(config, "vqascore", 8)
+    for start in tqdm(range(0, len(records), batch_size), desc="Gate VQAScore"):
+        batch = records[start : start + batch_size]
+        try:
+            image_paths = [
+                str(_resolve_image(image_root, r["image"])) for r in batch
+            ]
+            texts = [_format_qa_for_clip(r) for r in batch]
+            batch_scores = scorer.score_pairs(image_paths, texts)
+            for r, s in zip(batch, batch_scores):
+                _scores(r)["vqascore"] = float(s)
+        except Exception as e:
+            logger.warning("VQAScore batch failed at %d: %s", start, e)
+            for r in batch:
+                try:
+                    image_path = _resolve_image(image_root, r["image"])
+                    s = score_vqascore(r, image_path, scorer)
+                except Exception as inner:
+                    logger.warning(
+                        "VQAScore scoring failed for %s: %s", r.get("image"), inner
+                    )
+                    s = 0.0
+                _scores(r)["vqascore"] = float(s)
+
+    return thresholds_from_quantile(
+        [r["scores"]["vqascore"] for r in records],
+        keep_top=config.gates.vqascore.keep_top,
     )
 
 
@@ -294,6 +337,7 @@ def _compute_thresholds(records, config) -> dict[str, ThresholdMap]:
     gate_runners = {
         "conf": lambda: _run_gate_conf(records, config),
         "itm": lambda: _run_gate_itm(records, image_cache, config),
+        "vqascore": lambda: _run_gate_vqascore(records, image_root, config),
         "xcons": lambda: _run_gate_xcons(records, image_cache, config),
         "lp": lambda: _run_gate_lp(records, image_cache, config),
         "kcons": lambda: _run_gate_kcons(records, config),

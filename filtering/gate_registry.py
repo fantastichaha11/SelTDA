@@ -1,16 +1,27 @@
 from __future__ import annotations
 
 from filtering.scorers import score_clip_itm, score_confidence, score_xcons
+from filtering.scorers_vqascore import score_vqascore
 
 GATE_SCORERS = {
     "conf": score_confidence,
     "itm": score_clip_itm,
+    "vqascore": score_vqascore,
     "xcons": score_xcons,
 }
 
+GATE_ORDER = ["conf", "itm", "vqascore", "xcons"]
+
 
 def enabled_gate_names(config) -> list[str]:
-    return [name for name in GATE_SCORERS if getattr(config.gates, name).enabled]
+    enabled = []
+    for name in GATE_ORDER:
+        if name not in GATE_SCORERS:
+            continue
+        gate_cfg = getattr(config.gates, name, None)
+        if gate_cfg is not None and gate_cfg.enabled:
+            enabled.append(name)
+    return enabled
 
 
 def apply_cascade(scores: dict, thresholds: dict, gate_order: list[str]) -> tuple[bool, str]:

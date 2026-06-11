@@ -46,6 +46,11 @@ def test_orchestrator_with_all_gates_disabled_keeps_all(tiny_setup):
                     "clip_model": "x",
                     "clip_pretrained": "y",
                 },
+                "vqascore": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "model": "clip-flant5-xl",
+                },
                 "xcons": {
                     "enabled": False,
                     "keep_top": 1.0,
@@ -99,6 +104,11 @@ def test_orchestrator_confidence_only_drops_low_logprob(tiny_setup):
                     "clip_model": "x",
                     "clip_pretrained": "y",
                 },
+                "vqascore": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "model": "clip-flant5-xl",
+                },
                 "xcons": {
                     "enabled": False,
                     "keep_top": 1.0,
@@ -148,6 +158,11 @@ def test_orchestrator_stratify_enabled_keeps_subset(tiny_setup):
                     "keep_top": 1.0,
                     "clip_model": "x",
                     "clip_pretrained": "y",
+                },
+                "vqascore": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "model": "clip-flant5-xl",
                 },
                 "xcons": {
                     "enabled": False,

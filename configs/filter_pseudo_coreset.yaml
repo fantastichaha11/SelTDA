@@ -12,6 +12,11 @@ gates:
     keep_top: 0.75
     clip_model: "ViT-B-32"
     clip_pretrained: "openai"
+  vqascore:
+    enabled: false
+    keep_top: 0.75
+    model: clip-flant5-xl
+    batch_size: 8
   xcons:
     enabled: true
     keep_top: 0.75

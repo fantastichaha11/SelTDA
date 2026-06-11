@@ -11,4 +11,6 @@ transformers==4.21.3
 open_clip_torch==2.20.0
 sentence-transformers==2.2.2
 huggingface_hub==0.13.4
+# Optional: enable gates.vqascore (CLIP-FlanT5 via t2v_metrics)
+# t2v-metrics>=1.2.0
 pytest

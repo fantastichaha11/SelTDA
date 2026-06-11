@@ -9,12 +9,30 @@ def test_enabled_gate_names_respects_config():
     class Gates:
         conf = G()
         itm = G()
+        vqascore = type("V", (), {"enabled": False, "keep_top": 0.75})()
         xcons = type("X", (), {"enabled": False, "keep_top": 0.75})()
 
     class Config:
         gates = Gates()
 
     assert enabled_gate_names(Config()) == ["conf", "itm"]
+
+
+def test_enabled_gate_names_includes_vqascore_when_enabled():
+    class G:
+        enabled = True
+        keep_top = 0.75
+
+    class Gates:
+        conf = type("C", (), {"enabled": False, "keep_top": 0.75})()
+        itm = type("I", (), {"enabled": False, "keep_top": 0.75})()
+        vqascore = G()
+        xcons = type("X", (), {"enabled": False, "keep_top": 0.75})()
+
+    class Config:
+        gates = Gates()
+
+    assert enabled_gate_names(Config()) == ["vqascore"]
 
 
 def test_apply_cascade_fails_at_first_gate():
