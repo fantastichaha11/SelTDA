@@ -5,6 +5,9 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${PROJECT_ROOT}"
 
+# shellcheck source=conda_helpers.sh
+source "${PROJECT_ROOT}/scripts/gcp/conda_helpers.sh"
+
 LOG_DIR="${PROJECT_ROOT}/cache/logs/vqascore_run"
 mkdir -p "${LOG_DIR}"
 exec > >(tee -a "${LOG_DIR}/pipeline.log") 2>&1
@@ -12,27 +15,18 @@ exec > >(tee -a "${LOG_DIR}/pipeline.log") 2>&1
 echo "=== SelTDA VQAScore-only pipeline $(date -Is) ==="
 
 export PYTHONNOUSERSITE=1
-export PATH="/opt/conda/bin:${PATH}"
-# shellcheck source=/dev/null
-source /opt/conda/etc/profile.d/conda.sh
-conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>/dev/null || true
-conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
+init_conda
 
 # --- blip env (train / eval / convert) ---
 bash scripts/gcp/setup_blip_env.sh
-conda activate blip
-
 bash scripts/gcp/dataset_minimal.sh
 
 # --- vqascore env (filter only; t2v-metrics needs Py3.10+) ---
 if ! conda env list | grep -q '^vqascore '; then
   conda create -n vqascore python=3.10 -y
 fi
-conda activate vqascore
-pip install -q --upgrade pip
-pip install -q torch torchvision t2v-metrics omegaconf hydra-core pillow tqdm numpy
-conda deactivate
-conda activate blip
+run_vqascore pip install -q --upgrade pip
+run_vqascore pip install -q torch torchvision t2v-metrics omegaconf hydra-core pillow tqdm numpy
 
 SYNTH_IN="datasets/aokvqa/synthetic_data_raw.json"
 SYNTH_OUT="datasets/aokvqa/synthetic_data_vqascore.json"
@@ -40,7 +34,7 @@ REPORT="datasets/aokvqa/filter_report_vqascore.json"
 OUT_TRAIN="cache/self_trained_weights_vqascore"
 
 echo "=== Step 1: Filter (vqascore gate only) ==="
-conda run -n vqascore python filter_pseudo.py \
+run_vqascore python filter_pseudo.py \
   --config configs/filter_pseudo_vqascore_only.yaml \
   --overrides \
     input="${SYNTH_IN}" \
@@ -50,7 +44,7 @@ conda run -n vqascore python filter_pseudo.py \
     device=cuda
 
 echo "=== Step 2: Train student ==="
-python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
+run_blip python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
   --output_dir="${OUT_TRAIN}" \
   --config configs/aokvqa.yaml \
   --overrides \
@@ -61,7 +55,7 @@ python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
 
 echo "=== Step 3: Evaluate ==="
 CKPT=$(ls -1 "${OUT_TRAIN}"/checkpoint_*.pth 2>/dev/null | sort -V | tail -1)
-python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
+run_blip python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
   --output_dir=cache/evals_vqascore \
   --evaluate \
   --config configs/aokvqa.yaml \

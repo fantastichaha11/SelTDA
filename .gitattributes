@@ -1,1 +1,2 @@
 scripts/gcp/*.sh text eol=lf
+scripts/gcp/conda_helpers.sh text eol=lf

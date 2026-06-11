@@ -5,19 +5,11 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-use_blip_python() {
-  export PATH="/opt/conda/bin:${PATH}"
-  # shellcheck source=/dev/null
-  source /opt/conda/etc/profile.d/conda.sh
-  if [ "${CONDA_DEFAULT_ENV:-}" != "blip" ]; then
-    conda activate blip
-  fi
-}
-
-use_blip_python
+# shellcheck source=conda_helpers.sh
+source "${PROJECT_ROOT}/scripts/gcp/conda_helpers.sh"
 
 ensure_gdown() {
-  command -v gdown &>/dev/null || python -m pip install -q gdown
+  command -v gdown &>/dev/null || run_blip python -m pip install -q gdown
 }
 
 download_gdrive_file() {
@@ -88,6 +80,6 @@ download_gdrive_file "1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj" \
 download_gdrive_file "1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf" \
   "${AOKVQA_DIR}/synthetic_data_raw.json" "synthetic_data_raw.json"
 
-python convert_aokvqa.py --config configs/aokvqa.yaml
+run_blip python convert_aokvqa.py --config configs/aokvqa.yaml
 
 echo "dataset_minimal.sh complete"
