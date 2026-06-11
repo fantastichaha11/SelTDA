@@ -12,6 +12,8 @@ if [ ! -d /opt/conda ]; then
   wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
   bash /tmp/miniconda.sh -b -p /opt/conda
 fi
+/opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>/dev/null || true
+/opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
 
 REPO_DIR="${USER_HOME}/SelTDA"
 BRANCH="feat/pseudo-label-filter"
