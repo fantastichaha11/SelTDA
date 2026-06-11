@@ -5,7 +5,7 @@ set -euo pipefail
 export PATH="${HOME}/google-cloud-sdk/bin:${PATH}"
 
 PROJECT="${GCP_PROJECT:-thesis-497813}"
-ZONE="${GCP_ZONE:-us-central1-b}"
+ZONE="${GCP_ZONE:-us-central1-a}"
 INSTANCE="${GCP_INSTANCE:-seltda-vqascore}"
 BRANCH="${GCP_BRANCH:-feat/pseudo-label-filter}"
 REPO="${GCP_REPO:-https://github.com/fantastichaha11/SelTDA.git}"
