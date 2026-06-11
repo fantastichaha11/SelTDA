@@ -15,6 +15,8 @@ export PYTHONNOUSERSITE=1
 export PATH="/opt/conda/bin:${PATH}"
 # shellcheck source=/dev/null
 source /opt/conda/etc/profile.d/conda.sh
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>/dev/null || true
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
 
 # --- blip env (train / eval / convert) ---
 if ! conda env list | grep -q '^blip '; then
