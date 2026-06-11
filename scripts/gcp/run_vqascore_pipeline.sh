@@ -19,9 +19,7 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/ma
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
 
 # --- blip env (train / eval / convert) ---
-if ! conda env list | grep -q '^blip '; then
-  conda env create -f environment.yaml
-fi
+bash scripts/gcp/setup_blip_env.sh
 conda activate blip
 
 bash scripts/gcp/dataset_minimal.sh
