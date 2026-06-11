@@ -12,12 +12,14 @@ exec > >(tee -a "${LOG_DIR}/pipeline.log") 2>&1
 echo "=== SelTDA VQAScore-only pipeline $(date -Is) ==="
 
 export PYTHONNOUSERSITE=1
+export PATH="/opt/conda/bin:${PATH}"
+# shellcheck source=/dev/null
+source /opt/conda/etc/profile.d/conda.sh
 
 # --- blip env (train / eval / convert) ---
 if ! conda env list | grep -q '^blip '; then
   conda env create -f environment.yaml
 fi
-source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate blip
 
 bash scripts/gcp/dataset_minimal.sh

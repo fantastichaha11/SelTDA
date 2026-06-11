@@ -1,20 +1,41 @@
-# GCP VM — SelTDA / C2
+# GCP VM — SelTDA
 
-## Instance (đã tạo)
+## VQAScore experiment (`seltda-vqascore`)
+
+Pipeline: filter chỉ gate `vqascore` → train student → eval A-OKVQA val.
+
+```bash
+export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+# Tạo VM (zone có GPU L4 khả dụng, mặc định us-central1-a)
+bash scripts/gcp/create_vm_vqascore.sh
+
+# SSH / theo dõi
+gcloud compute ssh seltda-vqascore --zone=us-central1-a --project=thesis-497813
+sudo -u ubuntu tail -f /home/ubuntu/SelTDA/cache/logs/vqascore_run/pipeline.log
+```
+
+| Field | Value |
+|-------|--------|
+| Name | `seltda-vqascore` |
+| Project | `thesis-497813` |
+| Zone | `us-central1-a` |
+| Type | `g2-standard-8` + **1× NVIDIA L4** |
+| Boot disk | 200 GB |
+
+Chạy lại pipeline trên VM đã có:
+
+```bash
+cd ~/SelTDA && git pull && tmux new -s vqascore 'bash scripts/gcp/run_vqascore_pipeline.sh'
+```
+
+## Instance cũ (C2)
 
 | Field | Value |
 |-------|--------|
 | Name | `seltda-c2` |
-| Project | `thesis-497813` |
 | Zone | `us-central1-b` |
-| Type | `g2-standard-8` (8 vCPU, 32 GB RAM, **1× NVIDIA L4**) |
-| Boot disk | 100 GB `pd-balanced` |
-| External IP | `34.172.51.251` (có thể đổi khi stop/start) |
-
-## SSH
 
 ```bash
-export PATH="$HOME/google-cloud-sdk/bin:$PATH"
 gcloud compute ssh seltda-c2 --zone=us-central1-b --project=thesis-497813
 ```
 

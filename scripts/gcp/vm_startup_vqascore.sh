@@ -29,6 +29,6 @@ chmod +x scripts/gcp/*.sh
 
 RUN_USER="$(logname 2>/dev/null || echo ubuntu)"
 sudo -u "${RUN_USER}" tmux new-session -d -s vqascore \
-  "cd ${REPO_DIR} && bash scripts/gcp/run_vqascore_pipeline.sh; echo EXIT=\$? | tee cache/logs/vqascore_run/exit_code.txt; exec bash"
+  "export PATH=/opt/conda/bin:\$PATH && source /opt/conda/etc/profile.d/conda.sh && cd ${REPO_DIR} && bash scripts/gcp/run_vqascore_pipeline.sh; echo EXIT=\$? | tee -a cache/logs/vqascore_run/exit_code.txt; exec bash"
 
 echo "VQAScore pipeline started in tmux session 'vqascore'" | tee /var/log/seltda-vqascore-startup.log
