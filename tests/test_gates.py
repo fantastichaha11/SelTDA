@@ -3,6 +3,9 @@ from filtering.gates import (
     GateThresholds,
     apply_gates,
     apply_soft_fusion,
+    fused_score,
+    normalize_gate_scores,
+    normalize_rank,
     thresholds_from_quantile,
 )
 
@@ -59,6 +62,33 @@ def test_thresholds_from_quantile_keep_top_1():
     assert t == float("inf")
 
 
-def test_apply_soft_fusion_stub_raises():
-    with pytest.raises(NotImplementedError):
-        apply_soft_fusion({"conf": 0.5, "itm": 0.5, "xcons": 0.5}, (1, 1, 1), 0.5)
+def test_normalize_rank_spreads_values():
+    out = normalize_rank([10.0, 20.0, 30.0])
+    assert out == pytest.approx([0.0, 0.5, 1.0])
+
+
+def test_fused_score_weighted_average():
+    norm = {"conf": 1.0, "itm": 0.0, "xcons": 0.5}
+    weights = {"conf": 0.5, "itm": 0.25, "xcons": 0.25}
+    assert fused_score(norm, weights, ["conf", "itm", "xcons"]) == pytest.approx(0.625)
+
+
+def test_apply_soft_fusion_keeps_above_tau():
+    norm = {"conf": 0.9, "itm": 0.8, "xcons": 0.7}
+    weights = {"conf": 1.0, "itm": 1.0, "xcons": 1.0}
+    keep, score = apply_soft_fusion(norm, weights, 0.7, ["conf", "itm", "xcons"])
+    assert keep is True
+    assert score == pytest.approx(0.8)
+
+
+def test_apply_soft_fusion_rejects_below_tau():
+    norm = {"conf": 0.2, "itm": 0.1, "xcons": 0.0}
+    weights = {"conf": 1.0, "itm": 1.0, "xcons": 1.0}
+    keep, score = apply_soft_fusion(norm, weights, 0.5, ["conf", "itm", "xcons"])
+    assert keep is False
+    assert score == pytest.approx(0.1)
+
+
+def test_normalize_gate_scores_minmax():
+    out = normalize_gate_scores([0.0, 0.5, 1.0], mode="minmax")
+    assert out == pytest.approx([0.0, 0.5, 1.0])

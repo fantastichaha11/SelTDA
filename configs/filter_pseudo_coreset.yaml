@@ -1,7 +1,7 @@
-input: datasets/aokvqa/synthetic_data_raw.json
-image_root: datasets/coco2017
-output: datasets/aokvqa/synthetic_data.json
-report: datasets/aokvqa/filter_report.json
+input: /teamspace/uploads/aokvqa/synthetic_data_raw.json
+image_root: /teamspace/uploads/coco2017
+output: /teamspace/uploads/aokvqa/synthetic_data.json
+report: /teamspace/uploads/aokvqa/filter_report.json
 
 gates:
   conf:

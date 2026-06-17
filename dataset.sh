@@ -147,20 +147,48 @@ fi
 
 # =========================
 # Create dataset dirs
+# Prefer /teamspace/uploads (persistent, user-uploaded on Lightning Studios).
+# Falls back to repo-local datasets/ when uploads is read-only.
+# Override anytime: DATASETS_DIR=/path/to/data bash dataset.sh
 # =========================
 
-export DATASETS_DIR="${PROJECT_ROOT}/datasets"
+UPLOADS_DIR="/teamspace/uploads"
+LEGACY_DATASETS="${PROJECT_ROOT}/datasets"
+
+if [ -n "${DATASETS_DIR:-}" ]; then
+    :
+elif touch "${UPLOADS_DIR}/.write_probe" 2>/dev/null; then
+    rm -f "${UPLOADS_DIR}/.write_probe"
+    DATASETS_DIR="${UPLOADS_DIR}"
+else
+    DATASETS_DIR="${LEGACY_DATASETS}"
+    echo "INFO: ${UPLOADS_DIR} is read-only — downloading to ${DATASETS_DIR}."
+    echo "      Upload ${DATASETS_DIR} via Lightning Studio UI to persist at ${UPLOADS_DIR}."
+fi
+
+export DATASETS_DIR
 export COCO_DIR="${DATASETS_DIR}/coco2017"
 export COCO2014_DIR="${DATASETS_DIR}/coco2014"
 export AOKVQA_DIR="${DATASETS_DIR}/aokvqa"
 export ADVQA_DIR="${DATASETS_DIR}/advqa"
 export PATHVQA_DIR="${DATASETS_DIR}/pathvqa"
 
+mkdir -p "${DATASETS_DIR}"
 mkdir -p "${COCO_DIR}"
 mkdir -p "${COCO2014_DIR}"
 mkdir -p "${AOKVQA_DIR}"
 mkdir -p "${ADVQA_DIR}"
 mkdir -p "${PATHVQA_DIR}"
+
+# When using repo-local storage, also expose datasets/ for relative config paths.
+if [ "${DATASETS_DIR}" = "${LEGACY_DATASETS}" ]; then
+    mkdir -p "${LEGACY_DATASETS}"
+elif [ ! -e "${LEGACY_DATASETS}" ]; then
+    ln -s "${DATASETS_DIR}" "${LEGACY_DATASETS}"
+    echo "Linked ${LEGACY_DATASETS} → ${DATASETS_DIR}"
+elif [ -L "${LEGACY_DATASETS}" ]; then
+    echo "[skip] ${LEGACY_DATASETS} already linked"
+fi
 
 # =========================
 # Download A-OKVQA

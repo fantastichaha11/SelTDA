@@ -1,7 +1,7 @@
 input: /teamspace/uploads/aokvqa/synthetic_data_raw.json
 image_root: /teamspace/uploads/coco2017
-output: /teamspace/uploads/aokvqa/synthetic_data.json
-report: /teamspace/uploads/aokvqa/filter_report.json
+output: /teamspace/uploads/aokvqa/synthetic_data_fusion.json
+report: /teamspace/uploads/aokvqa/filter_report_fusion.json
 
 gates:
   conf:
@@ -27,15 +27,14 @@ gates:
     image_size: 384
     batch_size: 8
 
-stratify:
+fusion:
   enabled: true
-  min_stratum_size: 50
-  global_keep_top_fallback: 0.75
-
-coreset:
-  enabled: false
-  keep_ratio: 0.9
-  diversity_weight: 0.5
+  keep_top: 0.75
+  normalize: minmax  # minmax | rank | none
+  weights:
+    conf: 0.34
+    itm: 0.33
+    xcons: 0.33
 
 scoring_only: false
 seed: 42

@@ -18,9 +18,21 @@ from filtering.adapters import BlipStudentAdapter, OpenClipAdapter, VQAScoreAdap
 from filtering.coreset import select_coreset
 from filtering.image_cache import ImageCache
 from filtering.gate_registry import apply_cascade, enabled_gate_names
-from filtering.gates import thresholds_from_quantile
+from filtering.gates import (
+    fused_score,
+    normalize_gate_scores,
+    thresholds_from_quantile,
+)
 from filtering.io import dump_records, load_records
+from filtering.paths import resolve_dataset_path
 from filtering.report import build_filter_report
+from filtering.score_cache import (
+    apply_gate_cache,
+    load_gate_cache,
+    record_key,
+    records_missing_gate,
+    save_gate_cache,
+)
 from filtering.scorers import (
     _format_qa_for_clip,
     normalize_min_max,
@@ -66,6 +78,92 @@ def _coreset_cfg(config) -> dict | None:
     return dict(config.coreset) if config.coreset is not None else None
 
 
+def _fusion_cfg(config) -> dict | None:
+    if not hasattr(config, "fusion"):
+        return None
+    return dict(config.fusion) if config.fusion is not None else None
+
+
+def _fusion_enabled(config) -> bool:
+    fusion = _fusion_cfg(config)
+    return bool(fusion and fusion.get("enabled", False))
+
+
+def _score_cache_cfg(config) -> dict | None:
+    if not hasattr(config, "score_cache"):
+        return None
+    if config.score_cache is None:
+        return None
+    return dict(config.score_cache)
+
+
+def _score_cache_dir(config) -> Path | None:
+    cache = _score_cache_cfg(config)
+    if not cache:
+        return None
+    raw = cache.get("dir")
+    if not raw:
+        return None
+    return Path(raw)
+
+
+def _score_cache_save_enabled(config) -> bool:
+    cache = _score_cache_cfg(config)
+    if not cache:
+        return False
+    return bool(cache.get("save", True))
+
+
+def _persist_gate_cache(
+    records: list[dict],
+    gate: str,
+    config,
+    input_path: Path,
+) -> None:
+    if not _score_cache_save_enabled(config):
+        return
+    cache_dir = _score_cache_dir(config)
+    extras = None
+    if gate == "xcons":
+        extras = {
+            record_key(r): {"_student_answer": r["_student_answer"]}
+            for r in records
+            if r.get("_student_answer") is not None
+        }
+    save_gate_cache(cache_dir, input_path, gate, records, extras=extras)
+
+
+def _hydrate_gate_cache(
+    records: list[dict],
+    gate: str,
+    config,
+    input_path: Path,
+) -> int:
+    cache_dir = _score_cache_dir(config)
+    payload = load_gate_cache(
+        cache_dir, input_path, gate, expected_n=len(records)
+    )
+    if not payload:
+        return 0
+    return apply_gate_cache(records, gate, payload)
+
+
+def _resolve_fusion_weights(config, gate_order: list[str]) -> dict[str, float]:
+    fusion = _fusion_cfg(config) or {}
+    raw = dict(fusion.get("weights") or {})
+    weights: dict[str, float] = {}
+    if raw:
+        for gate in gate_order:
+            if gate in raw:
+                weights[gate] = float(raw[gate])
+    else:
+        weights = {gate: 1.0 for gate in gate_order}
+    total = sum(weights.values())
+    if total <= 0:
+        return {gate: 1.0 / len(gate_order) for gate in gate_order} if gate_order else {}
+    return {gate: w / total for gate, w in weights.items()}
+
+
 def _gate_batch_size(config, gate: str, default: int) -> int:
     gate_cfg = getattr(config.gates, gate, None)
     if gate_cfg is None:
@@ -108,14 +206,22 @@ def _run_gate_itm(records, image_cache: ImageCache, config) -> float:
             _scores(r)["itm"] = 1.0
         return float("-inf")
 
+    to_score = records_missing_gate(records, "itm")
+    if not to_score:
+        logger.info("[skip] ITM scoring — all records already have scores")
+        return thresholds_from_quantile(
+            [r["scores"]["itm"] for r in records],
+            keep_top=config.gates.itm.keep_top,
+        )
+
     clip = OpenClipAdapter(
         model_name=config.gates.itm.clip_model,
         pretrained=config.gates.itm.clip_pretrained,
         device=config.device,
     )
     batch_size = _gate_batch_size(config, "itm", 32)
-    for start in tqdm(range(0, len(records), batch_size), desc="Gate ITM"):
-        batch = records[start : start + batch_size]
+    for start in tqdm(range(0, len(to_score), batch_size), desc="Gate ITM"):
+        batch = to_score[start : start + batch_size]
         try:
             images = [image_cache.get(r["image"]) for r in batch]
             img_embs = clip.embed_images_batch(images)
@@ -149,13 +255,21 @@ def _run_gate_vqascore(
             _scores(r)["vqascore"] = 1.0
         return float("-inf")
 
+    to_score = records_missing_gate(records, "vqascore")
+    if not to_score:
+        logger.info("[skip] VQAScore scoring — all records already have scores")
+        return thresholds_from_quantile(
+            [r["scores"]["vqascore"] for r in records],
+            keep_top=config.gates.vqascore.keep_top,
+        )
+
     scorer = VQAScoreAdapter(
         model=config.gates.vqascore.get("model", "clip-flant5-xl"),
         device=config.device,
     )
     batch_size = _gate_batch_size(config, "vqascore", 8)
-    for start in tqdm(range(0, len(records), batch_size), desc="Gate VQAScore"):
-        batch = records[start : start + batch_size]
+    for start in tqdm(range(0, len(to_score), batch_size), desc="Gate VQAScore"):
+        batch = to_score[start : start + batch_size]
         try:
             image_paths = [
                 str(_resolve_image(image_root, r["image"])) for r in batch
@@ -189,6 +303,14 @@ def _run_gate_xcons(records, image_cache: ImageCache, config) -> float:
             _scores(r)["xcons"] = 1.0
         return float("-inf")
 
+    to_score = records_missing_gate(records, "xcons")
+    if not to_score:
+        logger.info("[skip] X-cons scoring — all records already have scores")
+        return thresholds_from_quantile(
+            [r["scores"]["xcons"] for r in records],
+            keep_top=config.gates.xcons.keep_top,
+        )
+
     from sentence_transformers import SentenceTransformer
 
     sbert = SentenceTransformer(config.gates.xcons.sbert_model, device=config.device)
@@ -199,8 +321,8 @@ def _run_gate_xcons(records, image_cache: ImageCache, config) -> float:
         device=config.device,
     )
     batch_size = _gate_batch_size(config, "xcons", 8)
-    for start in tqdm(range(0, len(records), batch_size), desc="Gate X-cons"):
-        batch = records[start : start + batch_size]
+    for start in tqdm(range(0, len(to_score), batch_size), desc="Gate X-cons"):
+        batch = to_score[start : start + batch_size]
         try:
             images = [image_cache.get(r["image"]) for r in batch]
             questions = [r["question"] for r in batch]
@@ -236,6 +358,15 @@ def _run_gate_lp(records, image_cache: ImageCache, config) -> float:
         return float("-inf")
 
     lp_cfg = config.gates.lp
+    corruption = config.gates.lp.get("corruption", "gaussian_noise")
+    to_score = records_missing_gate(records, "lp")
+    if not to_score:
+        logger.info("[skip] LP scoring — all records already have scores")
+        return thresholds_from_quantile(
+            [r["scores"]["lp"] for r in records],
+            keep_top=config.gates.lp.keep_top,
+        )
+
     xcons_cfg = getattr(config.gates, "xcons", None)
     student = BlipStudentAdapter(
         checkpoint=lp_cfg.get("student_ckpt") or getattr(
@@ -246,8 +377,7 @@ def _run_gate_lp(records, image_cache: ImageCache, config) -> float:
         image_size=lp_cfg.get("image_size") or getattr(xcons_cfg, "image_size", 384),
         device=config.device,
     )
-    corruption = config.gates.lp.get("corruption", "gaussian_noise")
-    for r in tqdm(records, desc="Gate LP"):
+    for r in tqdm(to_score, desc="Gate LP"):
         try:
             a_clean = r.get("_student_answer")
             image = image_cache.get_copy(r["image"]) if a_clean is None else image_cache.get(
@@ -284,6 +414,22 @@ def _run_gate_kcons(records, config) -> float:
     if strata_filter:
         assign_types(records)
 
+    to_score = [
+        r
+        for r in records
+        if "kcons" not in (r.get("scores") or {})
+        and (not strata_filter or r.get("question_type") in strata_filter)
+    ]
+    if not to_score:
+        for r in records:
+            if strata_filter and r.get("question_type") not in strata_filter:
+                _scores(r)["kcons"] = 1.0
+        logger.info("[skip] K-cons scoring — all records already have scores")
+        return thresholds_from_quantile(
+            [r["scores"]["kcons"] for r in records],
+            keep_top=config.gates.kcons.keep_top,
+        )
+
     nli_model = None
     nli_name = config.gates.kcons.get("nli_model")
     if nli_name:
@@ -303,6 +449,8 @@ def _run_gate_kcons(records, config) -> float:
     for r in tqdm(records, desc="Gate K-cons"):
         if strata_filter and r.get("question_type") not in strata_filter:
             _scores(r)["kcons"] = 1.0
+            continue
+        if "kcons" in _scores(r):
             continue
         try:
             ans = r["answer"][0] if isinstance(r["answer"], list) else r["answer"]
@@ -326,7 +474,7 @@ def _run_gate_kcons(records, config) -> float:
     )
 
 
-def _compute_thresholds(records, config) -> dict[str, ThresholdMap]:
+def _compute_thresholds(records, config, input_path: Path) -> dict[str, ThresholdMap]:
     stratify = _stratify_cfg(config)
     stratify_on = bool(stratify and stratify.get("enabled", False))
     if stratify_on:
@@ -346,7 +494,9 @@ def _compute_thresholds(records, config) -> dict[str, ThresholdMap]:
     global_fallback: float | None = None
 
     for gate in enabled_gate_names(config):
+        _hydrate_gate_cache(records, gate, config, input_path)
         gate_runners[gate]()
+        _persist_gate_cache(records, gate, config, input_path)
         gate_cfg = getattr(config.gates, gate)
         if stratify_on and global_fallback is None and gate == "conf":
             conf_vals = [r["scores"]["conf"] for r in records if "conf" in r.get("scores", {})]
@@ -363,7 +513,7 @@ def _compute_thresholds(records, config) -> dict[str, ThresholdMap]:
                 min_stratum_size=stratify.get("min_stratum_size", 50),
                 global_fallback=global_fallback,
             )
-        else:
+        elif not _fusion_enabled(config):
             thresholds[gate] = thresholds_from_quantile(
                 [r["scores"][gate] for r in records],
                 keep_top=gate_cfg.keep_top,
@@ -425,6 +575,46 @@ def _apply_coreset(
     return selected
 
 
+def _prepare_fusion(
+    records: list[dict],
+    gate_order: list[str],
+    config,
+) -> tuple[float, dict[str, float], str]:
+    """Normalize per-gate scores on the pool and attach fused score to each record."""
+    fusion = _fusion_cfg(config) or {}
+    mode = str(fusion.get("normalize", "minmax"))
+    keep_top = float(fusion.get("keep_top", 0.75))
+    weights = _resolve_fusion_weights(config, gate_order)
+
+    normed_by_gate: dict[str, list[float]] = {}
+    for gate in gate_order:
+        vals = [float(r["scores"].get(gate, 0.0)) for r in records]
+        normed_by_gate[gate] = normalize_gate_scores(vals, mode)
+
+    fused_vals: list[float] = []
+    for i, record in enumerate(records):
+        normalized = {gate: normed_by_gate[gate][i] for gate in gate_order}
+        score = fused_score(normalized, weights, gate_order)
+        record["scores"]["fusion"] = score
+        fused_vals.append(score)
+
+    tau = thresholds_from_quantile(fused_vals, keep_top)
+    return tau, weights, mode
+
+
+def _resolve_config_paths(config) -> None:
+    for key in ("input", "image_root", "output", "report"):
+        if hasattr(config, key) and config[key] is not None:
+            config[key] = str(resolve_dataset_path(config[key]))
+    cache_cfg = _score_cache_cfg(config)
+    if cache_cfg and cache_cfg.get("dir"):
+        cache_cfg["dir"] = str(resolve_dataset_path(cache_cfg["dir"]))
+    scored_pool = (_score_cache_cfg(config) or {}).get("scored_pool")
+    if scored_pool:
+        if hasattr(config, "score_cache") and config.score_cache is not None:
+            config.score_cache.scored_pool = str(resolve_dataset_path(scored_pool))
+
+
 def main(args, config):
     _seed_everything(config.seed)
     logging.basicConfig(
@@ -432,13 +622,51 @@ def main(args, config):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    image_root = Path(config.image_root)
-    records = load_records(config.input)
-    logger.info("Loaded %d raw records from %s", len(records), config.input)
+    _resolve_config_paths(config)
 
-    thresholds = _compute_thresholds(records, config)
+    image_root = Path(config.image_root)
+    input_path = Path(config.input)
+    records = load_records(input_path)
+    logger.info("Loaded %d raw records from %s", len(records), input_path)
+
+    cache_cfg = _score_cache_cfg(config)
+    if cache_cfg and cache_cfg.get("merge_input_scores", True):
+        prefilled = sum(1 for r in records if r.get("scores"))
+        if prefilled:
+            logger.info(
+                "Input already contains scores on %d/%d records",
+                prefilled,
+                len(records),
+            )
+
+    thresholds = _compute_thresholds(records, config, input_path)
     gate_order = enabled_gate_names(config)
-    logger.info("Gate order: %s; thresholds: %s", gate_order, thresholds)
+    fusion_enabled = _fusion_enabled(config)
+    if fusion_enabled and _stratify_cfg(config) and _stratify_cfg(config).get("enabled"):
+        logger.warning(
+            "fusion.enabled=true ignores per-stratum cascade thresholds; using global fusion only"
+        )
+
+    fusion_meta: dict | None = None
+    tau_fusion: float | None = None
+    if fusion_enabled and gate_order:
+        tau_fusion, fusion_weights, fusion_norm = _prepare_fusion(
+            records, gate_order, config
+        )
+        fusion_meta = {
+            "tau": tau_fusion,
+            "weights": fusion_weights,
+            "normalize": fusion_norm,
+            "keep_top": float(_fusion_cfg(config).get("keep_top", 0.75)),
+        }
+        logger.info("Fusion enabled: %s", fusion_meta)
+    else:
+        logger.info("Gate order: %s; thresholds: %s", gate_order, thresholds)
+
+    scored_pool = (_score_cache_cfg(config) or {}).get("scored_pool")
+    if scored_pool:
+        dump_records(records, scored_pool)
+        logger.info("Wrote scored pool (%d records) to %s", len(records), scored_pool)
 
     decisions = []
     kept_records = []
@@ -448,8 +676,13 @@ def main(args, config):
             kept_records.append(r)
             continue
         _scores(r)
-        th = _record_thresholds(r, thresholds, gate_order)
-        keep, reason = apply_cascade(r["scores"], th, gate_order)
+        if fusion_enabled and tau_fusion is not None:
+            fused = float(r["scores"].get("fusion", 0.0))
+            keep = fused >= tau_fusion
+            reason = "kept" if keep else "fusion"
+        else:
+            th = _record_thresholds(r, thresholds, gate_order)
+            keep, reason = apply_cascade(r["scores"], th, gate_order)
         decisions.append((r, reason))
         if keep:
             kept_records.append(r)
@@ -462,6 +695,11 @@ def main(args, config):
 
     report = build_filter_report(decisions, max_examples=config.report_max_examples)
     report["thresholds"] = thresholds
+    if fusion_meta is not None:
+        report["fusion"] = fusion_meta
+    cache_dir = _score_cache_dir(config)
+    if cache_dir is not None:
+        report["score_cache"] = {"dir": str(cache_dir)}
     report["config"] = dict(config)
     Path(config.report).parent.mkdir(parents=True, exist_ok=True)
     with open(config.report, "w") as f:

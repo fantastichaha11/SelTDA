@@ -104,7 +104,7 @@ def main() -> None:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("datasets/pathvqa"),
+        default=Path("/teamspace/uploads/pathvqa"),
         help="Directory for all_data.json and images/",
     )
     args = parser.parse_args()

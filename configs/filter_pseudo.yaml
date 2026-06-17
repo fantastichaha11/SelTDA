@@ -1,7 +1,7 @@
-input: datasets/aokvqa/synthetic_data_raw.json
-image_root: datasets/coco2017
-output: datasets/aokvqa/synthetic_data.json
-report: datasets/aokvqa/filter_report.json
+input: /teamspace/uploads/aokvqa/synthetic_data_raw.json
+image_root: /teamspace/uploads/coco2017
+output: /teamspace/uploads/aokvqa/synthetic_data.json
+report: /teamspace/uploads/aokvqa/filter_report.json
 
 gates:
   conf:
@@ -26,6 +26,21 @@ gates:
     sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
     image_size: 384
     batch_size: 8
+
+fusion:
+  enabled: false
+  keep_top: 0.75
+  normalize: minmax  # minmax | rank | none
+  weights:
+    conf: 0.34
+    itm: 0.33
+    xcons: 0.33
+
+score_cache:
+  dir: null  # e.g. /teamspace/uploads/aokvqa/score_cache
+  save: true
+  merge_input_scores: true
+  scored_pool: null  # optional: write all records + scores after scoring
 
 scoring_only: false
 seed: 42
