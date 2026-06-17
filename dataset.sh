@@ -35,6 +35,21 @@ download_gdrive_file() {
     gdown "https://drive.google.com/uc?id=${file_id}" -O "${output_path}"
 }
 
+download_url_file() {
+    local url="$1"
+    local output_path="$2"
+    local label="$3"
+
+    if [ -f "${output_path}" ]; then
+        echo "[skip] ${label} already exists: ${output_path}"
+        return 0
+    fi
+
+    echo "Downloading ${label} to ${output_path}..."
+    mkdir -p "$(dirname "${output_path}")"
+    curl -fsSL "${url}" -o "${output_path}"
+}
+
 count_jpg_in_dir() {
     local dir="$1"
     find "${dir}" -maxdepth 1 -name '*.jpg' 2>/dev/null | wc -l | tr -d ' '
@@ -136,10 +151,16 @@ fi
 
 export DATASETS_DIR="${PROJECT_ROOT}/datasets"
 export COCO_DIR="${DATASETS_DIR}/coco2017"
+export COCO2014_DIR="${DATASETS_DIR}/coco2014"
 export AOKVQA_DIR="${DATASETS_DIR}/aokvqa"
+export ADVQA_DIR="${DATASETS_DIR}/advqa"
+export PATHVQA_DIR="${DATASETS_DIR}/pathvqa"
 
 mkdir -p "${COCO_DIR}"
+mkdir -p "${COCO2014_DIR}"
 mkdir -p "${AOKVQA_DIR}"
+mkdir -p "${ADVQA_DIR}"
+mkdir -p "${PATHVQA_DIR}"
 
 # =========================
 # Download A-OKVQA
@@ -203,6 +224,74 @@ fi
 echo "COCO extraction completed!"
 
 # =========================
+# Download AdVQA
+# Annotations/questions: https://adversarialvqa.org/download.html
+# Validation images: COCO val2014; test-dev questions use COCO test2015
+# =========================
+
+ADVQA_MARKER="${ADVQA_DIR}/v1_OpenEnded_mscoco_val2017_advqa_questions.json"
+
+if [ -f "${ADVQA_MARKER}" ]; then
+    echo "[skip] AdVQA already present: ${ADVQA_MARKER}"
+else
+    echo "Downloading AdVQA annotations and questions..."
+
+    download_url_file \
+        "https://dl.fbaipublicfiles.com/advqa/v1_mscoco_val2017_advqa_annotations.json" \
+        "${ADVQA_DIR}/v1_mscoco_val2017_advqa_annotations.json" \
+        "AdVQA val annotations"
+
+    download_url_file \
+        "https://dl.fbaipublicfiles.com/advqa/v1_OpenEnded_mscoco_val2017_advqa_questions.json" \
+        "${ADVQA_DIR}/v1_OpenEnded_mscoco_val2017_advqa_questions.json" \
+        "AdVQA val questions"
+
+    download_url_file \
+        "https://dl.fbaipublicfiles.com/advqa/v1_OpenEnded_mscoco_testdev2015_advqa_questions.json" \
+        "${ADVQA_DIR}/v1_OpenEnded_mscoco_testdev2015_advqa_questions.json" \
+        "AdVQA test-dev questions"
+fi
+
+cd "${COCO2014_DIR}"
+
+download_coco_zip \
+    "http://images.cocodataset.org/zips/val2014.zip" \
+    "val2014.zip" \
+    ".val2014.complete" \
+    "folder" \
+    "val2014" \
+    0
+
+download_coco_zip \
+    "http://images.cocodataset.org/zips/test2015.zip" \
+    "test2015.zip" \
+    ".test2015.complete" \
+    "folder" \
+    "test2015" \
+    0
+
+echo "AdVQA download completed!"
+
+# =========================
+# Download PathVQA
+# Source: https://huggingface.co/datasets/flaviagiammarino/path-vqa
+# Official Google Drive mirror is often permission-restricted; HF is used instead.
+# After download, run convert_pathvqa.py to produce train/test JSON.
+# =========================
+
+PATHVQA_MARKER="${PATHVQA_DIR}/all_data.json"
+
+if [ -f "${PATHVQA_MARKER}" ] && [ -d "${PATHVQA_DIR}/images/train" ]; then
+    echo "[skip] PathVQA already present: ${PATHVQA_DIR}"
+else
+    echo "Downloading PathVQA..."
+    python "${PROJECT_ROOT}/scripts/download_pathvqa.py" \
+        --output-root "${PATHVQA_DIR}"
+fi
+
+echo "PathVQA download completed! (run: python convert_pathvqa.py)"
+
+# =========================
 # Update configs
 # =========================
 
@@ -230,6 +319,52 @@ sed -i \
 "${PY_FILE}"
 
 echo "Updated ${PY_FILE}"
+
+# =========================
+# Update convert_advqa.py
+# =========================
+
+ADVQA_PY_FILE="${PROJECT_ROOT}/convert_advqa.py"
+
+sed -i \
+"s|IMAGES_ROOT = Path(\".*\")|IMAGES_ROOT = Path(\"${COCO2014_DIR}\")|" \
+"${ADVQA_PY_FILE}"
+
+sed -i \
+"s|ADVQA_ROOT = Path(\".*\")|ADVQA_ROOT = Path(\"${ADVQA_DIR}\")|" \
+"${ADVQA_PY_FILE}"
+
+echo "Updated ${ADVQA_PY_FILE}"
+
+# =========================
+# Update convert_pathvqa.py
+# =========================
+
+PATHVQA_PY_FILE="${PROJECT_ROOT}/convert_pathvqa.py"
+
+sed -i \
+"s|PATHVQA_ROOT = Path(\".*\")|PATHVQA_ROOT = Path(\"${PATHVQA_DIR}\")|" \
+"${PATHVQA_PY_FILE}"
+
+sed -i \
+"s|pathvqa_images_dir: Path = Path(\".*\")|pathvqa_images_dir: Path = Path(\"${PATHVQA_DIR}/images\")|" \
+"${PATHVQA_PY_FILE}"
+
+echo "Updated ${PATHVQA_PY_FILE}"
+
+for file in \
+    "${PROJECT_ROOT}/configs/pathvqa.yaml" \
+    "${PROJECT_ROOT}/configs/pathvqg.yaml" \
+    "${PROJECT_ROOT}/configs/generate_questions_pathvqa.yaml"
+do
+    sed -i "s|^vqa_root:.*|vqa_root: ${PATHVQA_DIR}/images|" "$file"
+    sed -i "s|^ann_root:.*|ann_root: ${PATHVQA_DIR}|" "$file"
+    sed -i "s|^image_folder:.*|image_folder: ${PATHVQA_DIR}/images|" "$file"
+    sed -i "s|^output_folder:.*|output_folder: ${PATHVQA_DIR}|" "$file"
+    sed -i "s|^annotations:.*|annotations: ${PATHVQA_DIR}/|" "$file"
+
+    echo "Updated $file"
+done
 
 # =========================
 # Download teacher checkpoint (VQG, A-OKVQA)

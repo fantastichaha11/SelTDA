@@ -57,7 +57,7 @@ def point_record_to_coco_image_file(
 
 if __name__ == "__main__":
     with open(
-        "/net/acadia10a/data/zkhan/advqa/v1_OpenEnded_mscoco_val2017_advqa_questions.json",
+        ADVQA_ROOT / "v1_OpenEnded_mscoco_val2017_advqa_questions.json",
         "r",
     ) as f:
         val_questions_raw = json.load(f)
