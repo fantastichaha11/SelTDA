@@ -9,7 +9,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 # Gates whose scores are absolute (safe to cache per record independently).
 CACHEABLE_GATES = frozenset({"itm", "vqascore", "xcons", "lp", "kcons"})
@@ -19,10 +19,11 @@ ALWAYS_RECOMPUTE_GATES = frozenset({"conf"})
 
 
 def record_key(record: dict) -> str:
-    """Stable key for aligning scores across filter runs."""
-    qid = record.get("question_id")
-    if qid is not None:
-        return str(qid)
+    """Stable key for aligning scores across filter runs.
+
+    Synthetic pools may reuse ``question_id`` across images; always key by
+    (image, question) so cache entries map 1:1 to records.
+    """
     return f"{record.get('image', '')}\0{record.get('question', '')}"
 
 

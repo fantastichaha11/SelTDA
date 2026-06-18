@@ -1,7 +1,7 @@
-vqa_root: '/workspace/SelTDA/datasets/coco2017'
+vqa_root: '/teamspace/studios/this_studio/SelTDA/datasets/coco2017'
 vg_root: null
 train_files: ['train']
-ann_root: '/workspace/SelTDA/datasets/aokvqa'
+ann_root: '/teamspace/studios/this_studio/SelTDA/datasets/aokvqa'
 dataset_name: aokvqa
 truncate_train_dataset_to: null
 

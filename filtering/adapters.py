@@ -73,6 +73,17 @@ class VQAScoreAdapter:
         if not image_paths:
             return []
         paths = [str(p) for p in image_paths]
+        # IMPORTANT: call model.forward directly for true paired scoring (n scores
+        # for n pairs in one batched forward). The Score.__call__ wrapper instead
+        # builds an m x n cross-product (m*n forwards), which makes throughput scale
+        # quadratically with batch size — much slower for larger batches.
+        model = getattr(self._scorer, "model", None)
+        if model is not None and hasattr(model, "forward"):
+            import torch
+
+            with torch.no_grad():
+                raw = model.forward(paths, texts)
+            return _tensor_scores_to_list(raw, len(paths))
         raw = self._scorer(images=paths, texts=texts)
         return _tensor_scores_to_list(raw, len(paths))
 

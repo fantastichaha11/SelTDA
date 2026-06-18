@@ -12,12 +12,12 @@ gates:
     keep_top: 0.75
     clip_model: "ViT-B-32"
     clip_pretrained: "openai"
-    batch_size: 32
+    batch_size: 256
   vqascore:
-    enabled: false
+    enabled: true
     keep_top: 0.75
     model: clip-flant5-xl
-    batch_size: 8
+    batch_size: 64
   xcons:
     enabled: true
     keep_top: 0.75
@@ -25,16 +25,22 @@ gates:
     med_config: configs/med_config.json
     sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
     image_size: 384
-    batch_size: 8
+    batch_size: 128
+
+score_cache:
+  dir: datasets/aokvqa/score_cache
+  save: true
+  merge_input_scores: true
 
 fusion:
   enabled: true
   keep_top: 0.75
   normalize: minmax  # minmax | rank | none
   weights:
-    conf: 0.34
-    itm: 0.33
-    xcons: 0.33
+    conf: 0.25
+    itm: 0.25
+    vqascore: 0.25
+    xcons: 0.25
 
 scoring_only: false
 seed: 42

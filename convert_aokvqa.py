@@ -29,7 +29,7 @@ SPLIT_TO_NEW_ANNOTATION_NAMES = {
     "test": "test.json",
 }
 
-IMAGES_ROOT = Path("/workspace/SelTDA/datasets/coco2017")
+IMAGES_ROOT = Path("/teamspace/studios/this_studio/SelTDA/datasets/coco2017")
 
 
 @attrs.define

@@ -119,9 +119,11 @@ class BLIP_VQA(nn.Module):
 
             if inference == "generate":
                 num_beams = 3
-                question_states = question_output.last_hidden_state.repeat_interleave(
-                    num_beams, dim=0
-                )
+                # NOTE: do not pre-expand by num_beams here. Modern transformers'
+                # generate() expands every tensor in model_kwargs by num_beams
+                # internally, so manual repeat_interleave caused a double expansion
+                # (3x3=9) and a batch-dim mismatch against input_ids.
+                question_states = question_output.last_hidden_state
                 question_atts = torch.ones(
                     question_states.size()[:-1], dtype=torch.long
                 ).to(question_states.device)
