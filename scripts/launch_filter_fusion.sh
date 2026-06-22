@@ -2,7 +2,7 @@
 # Launch the fusion filter fully detached so it survives the agent session.
 set -euo pipefail
 
-cd /teamspace/studios/this_studio/SelTDA
+cd /workspace/SelTDA
 export PYTHONNOUSERSITE=1
 
 ROOT="$(pwd)"
