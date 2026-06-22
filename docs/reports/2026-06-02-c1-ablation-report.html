@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo cáo thí nghiệm — C1 Cascade Filter (3 gate)</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --text: #1a1a2e;
+      --muted: #5c5c7a;
+      --accent: #2563eb;
+      --accent-light: #eff6ff;
+      --border: #e2e8f0;
+      --success: #059669;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --paper: #b45309;
+      --paper-bg: #fffbeb;
+      --paper-border: #f59e0b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      padding: 2.5rem 3rem;
+    }
+
+    header {
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 0.75rem;
+    }
+
+    .meta {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .meta strong { color: var(--text); }
+
+    h2 {
+      font-size: 1.35rem;
+      margin: 2.25rem 0 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--accent);
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    h4 {
+      font-size: 1rem;
+      margin: 1.25rem 0 0.5rem;
+      color: var(--muted);
+    }
+
+    p { margin: 0.75rem 0; }
+
+    ul, ol {
+      margin: 0.75rem 0;
+      padding-left: 1.5rem;
+    }
+
+    li { margin: 0.35rem 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--accent-light);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    tr:nth-child(even) { background: #f8fafc; }
+
+    .highlight-row {
+      background: #ecfdf5 !important;
+      font-weight: 600;
+    }
+
+    .paper-row {
+      background: var(--paper-bg) !important;
+      border-left: 4px solid var(--paper-border);
+      font-weight: 600;
+    }
+
+    .paper-row td:first-child {
+      color: var(--paper);
+    }
+
+    .paper-badge {
+      display: inline-block;
+      background: var(--paper-border);
+      color: #78350f;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .best-badge {
+      display: inline-block;
+      background: var(--success);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 0.75rem 0 1.25rem;
+      font-size: 0.88rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .swatch-paper { background: var(--paper-border); }
+    .swatch-best  { background: var(--success); }
+
+    .negative { color: var(--danger); }
+    .positive { color: var(--success); }
+
+    pre, code {
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 0.82rem;
+    }
+
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      line-height: 1.5;
+    }
+
+    code {
+      background: #f1f5f9;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    .summary-box {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1rem 0 1.5rem;
+    }
+
+    .summary-box ul { margin: 0.5rem 0 0; }
+
+    .note-box {
+      background: #fffbeb;
+      border-left: 4px solid var(--warning);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1rem 0 1.5rem;
+      color: #78350f;
+    }
+
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.75rem 1.25rem;
+      border-left: 4px solid var(--border);
+      background: #f8fafc;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .pipeline {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin: 1rem 0;
+      font-family: monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .step-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      margin-right: 0.4rem;
+    }
+
+    .gate-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-right: 0.25rem;
+    }
+
+    .gate-conf { background: #dbeafe; color: #1e40af; }
+    .gate-itm  { background: #dcfce7; color: #166534; }
+    .gate-xcons { background: #fce7f3; color: #9d174d; }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 1rem; }
+    }
+
+    @media (max-width: 640px) {
+      .container { padding: 1.5rem; }
+      table { font-size: 0.8rem; }
+      th, td { padding: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Báo cáo thí nghiệm — C1 Cascade Filter</h1>
+      <div class="meta">
+        <div><strong>Phạm vi:</strong> H1 Phase 1a — ablation 3 cổng lọc pseudo-label (conf → ITM → xcons)</div>
+        <div><strong>Đề tài:</strong> Cải tiến SelTDA trên A-OKVQA</div>
+        <div><strong>Dataset / metric:</strong> A-OKVQA validation accuracy</div>
+        <div><strong>Ngày báo cáo:</strong> 02/06/2026</div>
+      </div>
+    </header>
+
+    <div class="note-box">
+      <strong>Lưu ý phạm vi:</strong> Báo cáo này chỉ mô tả <strong>bước lọc cascade 3 gate</strong> (Contribution C1 — Phase 1a).
+      Chưa bao gồm TS-1 (ngưỡng theo question type), CS-X (coreset), hay C2 closed-loop.
+      Trong code/spec, ba gate được đánh số:
+      <span class="gate-tag gate-conf">Gate 1 = conf</span>
+      <span class="gate-tag gate-itm">Gate 2 = ITM</span>
+      <span class="gate-tag gate-xcons">Gate 3 = xcons</span>
+    </div>
+
+    <section id="summary">
+      <h2>1. Tóm tắt kết quả</h2>
+      <p>
+        Em đã chạy ablation một phần của ma trận H1: so sánh baseline không synthetic,
+        synthetic thô (unfiltered), và các biến thể bật từng gate / kết hợp gate 1+2.
+        Tất cả so sánh tại <code>checkpoint_09.pth</code>, cùng config train.
+      </p>
+
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-swatch swatch-paper"></span>
+          <span><strong>Paper gốc</strong> — SelTDA (Khan et al., CVPR 2023), train + synthetic không lọc</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch swatch-best"></span>
+          <span><strong>Tốt nhất hiện tại</strong> — C+I (conf + ITM), contribution của em</span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Cấu hình (log thí nghiệm)</th>
+            <th>Gate bật</th>
+            <th>Val Accuracy</th>
+            <th>Δ vs trainset only</th>
+            <th>Δ vs paper gốc</th>
+            <th>Checkpoint</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Trainset only</td>
+            <td>— (không synthetic)</td>
+            <td><strong>57.99%</strong></td>
+            <td>—</td>
+            <td class="negative">−2.62%</td>
+            <td><code>cache/self_trained_weights/checkpoint_09.pth</code></td>
+          </tr>
+          <tr class="paper-row">
+            <td>
+              Trainset + synthetic (raw)
+              <span class="paper-badge">Paper gốc</span>
+            </td>
+            <td>Không lọc — đúng pipeline SelTDA gốc</td>
+            <td><strong>60.61%</strong></td>
+            <td class="positive">+2.62%</td>
+            <td>— (baseline so sánh)</td>
+            <td><code>cache/self_trained_weights_raw/checkpoint_09.pth</code></td>
+          </tr>
+          <tr>
+            <td>Gate 2 only</td>
+            <td><span class="gate-tag gate-itm">ITM</span></td>
+            <td>54.50%</td>
+            <td class="negative">−3.49%</td>
+            <td class="negative">−6.11%</td>
+            <td><code>cache/self_trained_weights2/checkpoint_09.pth</code></td>
+          </tr>
+          <tr>
+            <td>Gate 1 only</td>
+            <td><span class="gate-tag gate-conf">conf</span></td>
+            <td>61.05%</td>
+            <td class="positive">+3.06%</td>
+            <td class="positive">+0.44%</td>
+            <td><code>cache/self_trained_weights1/checkpoint_09.pth</code></td>
+          </tr>
+          <tr class="highlight-row">
+            <td>
+              Gate 1 + Gate 2
+              <span class="best-badge">Tốt nhất</span>
+            </td>
+            <td><span class="gate-tag gate-conf">conf</span> + <span class="gate-tag gate-itm">ITM</span> (C+I)</td>
+            <td><strong>61.83%</strong></td>
+            <td class="positive"><strong>+3.84%</strong></td>
+            <td class="positive"><strong>+1.22%</strong></td>
+            <td><code>cache/self_trained_weights12/checkpoint_09.pth</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p style="font-size: 0.88rem; color: var(--muted);">
+        <strong>Paper gốc:</strong> Khan et al., CVPR 2023 — self-train trên <code>train.json</code> + toàn bộ pseudo-QA
+        (<code>synthetic_data_raw.json</code>), <em>không</em> qua <code>filter_pseudo.py</code>.
+        Số published Tab.4 ≈ <strong>60.01%</strong> (A-OKVQA val, synth:real 2:1); em replicate được <strong>60.61%</strong>
+        trên cùng setup local.
+      </p>
+
+      <p><em>Chưa chạy trong batch này:</em> Gate 3 (<code>xcons</code>) riêng lẻ, và full cascade <strong>C+I+X</strong> — đây là variant dự kiến tốt nhất theo protocol H1.</p>
+
+      <div class="summary-box">
+        <strong>Kết luận sơ bộ (Phase 1a — partial):</strong>
+        <ul>
+          <li><strong>Gate 1 (conf)</strong> đóng góp nhiều nhất trong các run đã có (+3.06%).</li>
+          <li><strong>Gate 2 (ITM)</strong> một mình không đủ — thậm chí tệ hơn baseline (−3.49%).</li>
+          <li><strong>C+I</strong> (gate 1 + gate 2) tốt hơn conf-only (+0.78%), cho thấy ITM bổ sung sau conf.</li>
+          <li>So với <strong>paper gốc (60.61%)</strong>: Gate 1 (+0.44%) và C+I (+1.22%) đã vượt SelTDA gốc — đây là claim chính của contribution.</li>
+          <li>Synthetic thô = paper gốc; mọi variant lọc bằng conf đều cao hơn paper.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="context">
+      <h2>2. Bối cảnh</h2>
+
+      <h3>2.1 Pipeline SelTDA gốc</h3>
+      <ol>
+        <li>Train teacher VQG trên dữ liệu có nhãn.</li>
+        <li>Sinh pseudo-QA từ ảnh không nhãn → <code>synthetic_data_raw.json</code>.</li>
+        <li>Self-train student VQA trên <code>train.json</code> + synthetic.</li>
+      </ol>
+      <p>
+        Khan et al. (CVPR 2023) ghi nhận ~30% pseudo-QA noisy. Code gốc không lọc chất lượng nội dung —
+        chỉ parse regex khi generate.
+      </p>
+
+      <h3>2.2 Contribution C1 — Phase 1a (H1)</h3>
+      <p>
+        Chèn bước <code>filter_pseudo.py</code> giữa generate và train. Ba cổng chạy <strong>cascade tuần tự</strong>:
+        sample fail bất kỳ cổng đang bật → loại.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Tên trong log</th>
+            <th>Tên trong code</th>
+            <th>Tín hiệu</th>
+            <th>Vai trò</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Gate 1</strong></td>
+            <td><code>conf</code></td>
+            <td>Mean log-probability teacher trên chuỗi Q+A</td>
+            <td>Loại output teacher không tự tin</td>
+          </tr>
+          <tr>
+            <td><strong>Gate 2</strong></td>
+            <td><code>itm</code></td>
+            <td>CLIP cosine similarity (ảnh ↔ "Q? A.")</td>
+            <td>Loại Q/A không grounded trên ảnh</td>
+          </tr>
+          <tr>
+            <td><strong>Gate 3</strong></td>
+            <td><code>xcons</code></td>
+            <td>Student pretrained trả lời vs pseudo-answer</td>
+            <td>Loại sample mâu thuẫn cross-consistency</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        Ngưỡng: quantile <code>keep_top = 0.75</code> trên từng gate đang bật (giữ top 75% theo score).
+        Thứ tự cascade: <code>conf → itm → xcons</code> (<code>filtering/gate_registry.py</code>).
+      </p>
+
+      <h3>2.3 Ràng buộc thiết kế</h3>
+      <p>
+        Không sửa <code>train_vqa.py</code> / loss / eval. So sánh công bằng: cùng config train,
+        khác duy nhất file synthetic và gate nào được bật khi lọc.
+      </p>
+    </section>
+
+    <section id="setup">
+      <h2>3. Thiết lập chung</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Thành phần</th>
+            <th>Chi tiết</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Model</td>
+            <td>BLIP VQA (ViT-base), pretrained BLIP</td>
+          </tr>
+          <tr>
+            <td>Real data</td>
+            <td>A-OKVQA train (~17k QA)</td>
+          </tr>
+          <tr>
+            <td>Synthetic pool</td>
+            <td><code>synthetic_data_raw.json</code> (~51k pseudo-QA)</td>
+          </tr>
+          <tr>
+            <td>Tỷ lệ synth:real</td>
+            <td>2:1 (<code>truncate_train_dataset_to=34000</code> khi có synthetic)</td>
+          </tr>
+          <tr>
+            <td>Checkpoint so sánh</td>
+            <td>Epoch 9/10 — <code>checkpoint_09.pth</code></td>
+          </tr>
+          <tr>
+            <td>Eval</td>
+            <td>A-OKVQA validation set (<code>use_validation_set_as_test_set=true</code>)</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="methodology">
+      <h2>4. Quy trình từng bước</h2>
+
+      <h3><span class="step-badge">B0</span> Chuẩn bị</h3>
+      <pre><code>bash dataset.sh
+python convert_aokvqa.py --config configs/aokvqa.yaml</code></pre>
+      <p>Tải COCO, A-OKVQA, checkpoint teacher (<code>checkpoint_04.pth</code>) và student pretrained (<code>checkpoint_09.pth</code> dùng cho gate xcons).</p>
+
+      <h3><span class="step-badge">B1</span> Sinh synthetic (một lần, dùng chung)</h3>
+      <pre><code>python generate_questions.py \
+  --config configs/generate_questions_aokvqa.yaml \
+  --overrides \
+    output_folder=datasets/aokvqa \
+    pretrained=cache/teacher_weights/checkpoint_04.pth \
+    questions_per_image=2 \
+    output_annotations_name=synthetic_data_raw.json</code></pre>
+      <p><strong>Lý do:</strong> Tạo pool raw chứa cả sample tốt và nhiễu — input cho mọi variant lọc và baseline unfiltered.</p>
+
+      <h3><span class="step-badge">B2</span> Lọc theo từng variant gate</h3>
+      <p>
+        Chạy <code>filter_pseudo.py</code> với <code>configs/filter_pseudo.yaml</code>,
+        bật/tắt từng gate qua <code>gates.&lt;name&gt;.enabled</code>.
+        Mỗi gate bật dùng <code>keep_top: 0.75</code>.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Variant</th>
+            <th>conf</th>
+            <th>itm</th>
+            <th>xcons</th>
+            <th>Output synthetic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raw (unfiltered)</td>
+            <td>off</td>
+            <td>off</td>
+            <td>off</td>
+            <td><code>synthetic_data_raw.json</code> (không qua filter)</td>
+          </tr>
+          <tr>
+            <td>Gate 1 only (C)</td>
+            <td><strong>on</strong></td>
+            <td>off</td>
+            <td>off</td>
+            <td>file lọc chỉ conf → train <code>weights1</code></td>
+          </tr>
+          <tr>
+            <td>Gate 2 only (I)</td>
+            <td>off</td>
+            <td><strong>on</strong></td>
+            <td>off</td>
+            <td>file lọc chỉ ITM → train <code>weights2</code></td>
+          </tr>
+          <tr>
+            <td>Gate 1 + Gate 2 (C+I)</td>
+            <td><strong>on</strong></td>
+            <td><strong>on</strong></td>
+            <td>off</td>
+            <td>cascade conf→ITM → train <code>weights12</code></td>
+          </tr>
+          <tr>
+            <td><em>Chưa chạy: C+I+X</em></td>
+            <td>on</td>
+            <td>on</td>
+            <td><strong>on</strong></td>
+            <td>full cascade — variant #7 trong protocol H1</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Ví dụ lọc chỉ Gate 1 (conf):</p>
+      <pre><code>python filter_pseudo.py \
+  --config configs/filter_pseudo.yaml \
+  --overrides \
+    input=datasets/aokvqa/synthetic_data_raw.json \
+    output=datasets/aokvqa/synthetic_data_c.json \
+    gates.itm.enabled=false \
+    gates.xcons.enabled=false</code></pre>
+
+      <p><strong>Lý do cascade tuần tự:</strong> Gate 3 (xcons) tốn GPU nhất (forward BLIP từng sample); chạy sau conf+ITM giảm số lần forward. Ablation bật/tắt từng gate tạo ma trận 2³ = 8 biến thể (protocol H1 §3.4).</p>
+
+      <h4>Chi tiết từng gate</h4>
+      <ul>
+        <li><strong>Gate 1 — conf:</strong> \(s_{conf}\) = mean log-prob teacher trên chuỗi đã sinh; chuẩn hóa min-max pool; giữ top quantile.</li>
+        <li><strong>Gate 2 — ITM:</strong> \(s_{itm}\) = cosine CLIP(image, "question answer"); rescale về [0,1]; giữ top quantile. Format "Q? A." giúp phân biệt answer chung chung (vd. "yes") không khớp câu hỏi cụ thể.</li>
+        <li><strong>Gate 3 — xcons:</strong> Student <em>pretrained</em> (chưa train synthetic) trả lời Q; match với pseudo-answer (exact + SBERT cosine, lấy max). <em>Chưa có kết quả train trong batch này.</em></li>
+      </ul>
+
+      <h3><span class="step-badge">B3</span> Train student</h3>
+      <pre><code>python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
+  --output_dir=cache/self_trained_weights_&lt;variant&gt; \
+  --config configs/aokvqa.yaml \
+  --overrides \
+    "train_files=[train,&lt;synthetic_file&gt;]" \
+    truncate_train_dataset_to=34000 \
+    wandb=false \
+    use_validation_set_as_test_set=true</code></pre>
+      <p>Baseline trainset-only: <code>train_files=[train]</code>, không truncate.</p>
+
+      <h3><span class="step-badge">B4</span> Evaluate</h3>
+      <pre><code>python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
+  --output_dir=cache/evals \
+  --evaluate \
+  --config configs/aokvqa.yaml \
+  --overrides \
+    pretrained=cache/self_trained_weights_&lt;variant&gt;/checkpoint_09.pth \
+    use_validation_set_as_test_set=true \
+    wandb=false</code></pre>
+    </section>
+
+    <section id="analysis">
+      <h2>5. Phân tích kết quả</h2>
+
+      <h3>5.1 Trainset only (57.99%)</h3>
+      <p>Mức sàn không self-training. Là baseline thấp nhất trong bảng — mọi cấu hình có synthetic (trừ ITM-only) đều vượt.</p>
+
+      <h3>5.2 Trainset + synthetic (raw) — <span class="paper-badge">Paper gốc</span> (60.61%)</h3>
+      <p>
+        Đây là <strong>baseline SelTDA gốc</strong> (Khan et al., CVPR 2023): train trên dữ liệu thật +
+        toàn bộ pseudo-QA chưa lọc, không qua bất kỳ gate nào. Tương đương variant <strong>0b</strong> trong protocol H1.
+        Mọi cải tiến C1 (conf, ITM, xcons) đều so sánh trực tiếp với dòng này — không so với “trainset only”.
+      </p>
+      <p>
+        Paper báo cáo ~60.01% (Tab.4); em replicate <strong>60.61%</strong> trên setup local (cùng synth:real 2:1).
+        ~30% pseudo-QA nhiễu vẫn vào training → đây là điểm xuất phát mà contribution nhằm vượt qua.
+      </p>
+
+      <h3>5.3 Gate 1 only — conf (61.05%, +0.44% vs paper)</h3>
+      <p>
+        Lọc theo độ tự tin teacher là tín hiệu mạnh nhất trong batch hiện tại.
+        Loại sample teacher "bị ép" sinh ra → tập synthetic sạch hơn dù có thể nhỏ hơn raw.
+        <strong>Đã vượt paper gốc</strong> dù chỉ bật một gate.
+      </p>
+
+      <h3>5.4 Gate 2 only — ITM (54.50%, −3.49%)</h3>
+      <p>
+        CLIP matching một mình <strong>không đủ</strong> và có thể chọn subset lệch:
+        answer ngắn ("yes/no") khó phân biệt polarity; ITM không thay thế được conf.
+        Đây là bằng chứng ablation quan trọng — không thể chỉ dùng Gate 2.
+      </p>
+
+      <h3>5.5 Gate 1 + Gate 2 — C+I (61.83%, +1.22% vs paper)</h3>
+      <p>
+        Sau khi conf lọc nhiễu rõ ràng, ITM bổ sung thêm ràng buộc grounded (Q+A khớp ảnh) → +0.78% so với conf-only,
+        <strong>+1.22% so với paper gốc SelTDA</strong>.
+        Đây là kết quả tốt nhất <em>trong các run đã có</em>, nhưng chưa phải full cascade — Gate 3 (xcons) chưa được train/eval.
+      </p>
+    </section>
+
+    <section id="pipeline">
+      <h2>6. Sơ đồ cascade 3 gate</h2>
+      <div class="pipeline">synthetic_data_raw.json
+         │
+         ▼
+    ┌─────────┐     fail ──► loại
+    │ Gate 1  │  conf (teacher logprob)
+    │  conf   │
+    └────┬────┘
+         │ pass
+         ▼
+    ┌─────────┐     fail ──► loại
+    │ Gate 2  │  ITM (CLIP image–text)
+    │   itm   │
+    └────┬────┘
+         │ pass
+         ▼
+    ┌─────────┐     fail ──► loại        ← chưa chạy train trong batch này
+    │ Gate 3  │  xcons (student zs match)
+    │  xcons  │
+    └────┬────┘
+         │ pass
+         ▼
+   synthetic_data.json → train_vqa.py
+
+─── Các run đã báo cáo ───
+  Trainset only (no synth)    → 57.99%
+  ★ PAPER GỐC SelTDA (raw)    → 60.61%  ← baseline Khan CVPR 2023
+  Gate 1 only  [conf]         → 61.05%  (+0.44% vs paper)
+  Gate 2 only  [itm]          → 54.50%
+  Gate 1+2     [conf→itm]     → 61.83%  (+1.22% vs paper) ★ best ours</div>
+    </section>
+
+    <section id="matrix">
+      <h2>7. Ma trận H1 còn lại</h2>
+      <p>Theo <code>research/experiments/H1-cascade-filter/protocol.md</code>, Phase 1a gồm 8 variant cascade + 2 baseline. Em mới hoàn thành một phần:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Variant</th>
+            <th>conf</th>
+            <th>ITM</th>
+            <th>xcons</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0a</td><td>No synthetic</td><td>—</td><td>—</td><td>—</td><td class="positive">✓ 57.99%</td></tr>
+          <tr class="paper-row">
+            <td>0b</td>
+            <td>Unfiltered <span class="paper-badge">Paper gốc</span></td>
+            <td>off</td><td>off</td><td>off</td>
+            <td class="positive">✓ 60.61% — baseline SelTDA</td>
+          </tr>
+          <tr><td>1</td><td>C</td><td>on</td><td>off</td><td>off</td><td class="positive">✓ 61.05%</td></tr>
+          <tr><td>2</td><td>I</td><td>off</td><td>on</td><td>off</td><td class="positive">✓ 54.50%</td></tr>
+          <tr><td>3</td><td>X</td><td>off</td><td>off</td><td>on</td><td>Chưa chạy</td></tr>
+          <tr><td>4</td><td>C+I</td><td>on</td><td>on</td><td>off</td><td class="positive">✓ 61.83%</td></tr>
+          <tr><td>5</td><td>C+X</td><td>on</td><td>off</td><td>on</td><td>Chưa chạy</td></tr>
+          <tr><td>6</td><td>I+X</td><td>off</td><td>on</td><td>on</td><td>Chưa chạy</td></tr>
+          <tr><td>7</td><td><strong>C+I+X</strong></td><td>on</td><td>on</td><td>on</td><td>Chưa chạy (dự kiến tốt nhất)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="next">
+      <h2>8. Bước tiếp theo</h2>
+      <ol>
+        <li>Hoàn thành variant <strong>C+I+X</strong> (full 3 gate) và các variant còn lại (X, C+X, I+X).</li>
+        <li>Chạy <strong>3 seeds</strong>, báo cáo mean ± std (protocol yêu cầu).</li>
+        <li>Random-subsample control cùng N với filtered (IDEA-04).</li>
+        <li>Sau khi H1 Phase 1a xong mới chuyển sang Phase 1b (TS-1), 1c (CS-X) — <em>ngoài phạm vi báo cáo này</em>.</li>
+      </ol>
+    </section>
+
+    <footer>
+      SelTDA — H1 Cascade Filter (conf / ITM / xcons) · Phase 1a partial results · 02/06/2026
+    </footer>
+  </div>
+</body>
+</html>
