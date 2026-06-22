@@ -1,0 +1,25 @@
+# Gate 4 only: xcons (pretrained student cross-consistency).
+defaults:
+  - filter_pseudo
+
+input: datasets/aokvqa/synthetic_data_raw.json
+image_root: datasets/coco2017
+output: datasets/aokvqa/synthetic_data_xcons.json
+report: datasets/aokvqa/filter_report_xcons.json
+
+gates:
+  conf:
+    enabled: false
+  itm:
+    enabled: false
+  vqascore:
+    enabled: false
+  xcons:
+    enabled: true
+    keep_top: 0.75
+    student_ckpt: cache/student_weights/checkpoint_09.pth
+
+score_cache:
+  dir: datasets/aokvqa/score_cache
+  save: true
+  merge_input_scores: true

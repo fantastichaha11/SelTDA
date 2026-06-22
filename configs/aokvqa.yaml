@@ -46,3 +46,4 @@ torch_home: /net/acadia10b/data/zkhan/torch_home
 wandb: true
 
 save_last_only: false
+max_checkpoints: 3

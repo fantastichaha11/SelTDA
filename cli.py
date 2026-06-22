@@ -23,8 +23,14 @@ def make_parser(default_config_path: str) -> ArgumentParser:
         default=None,
         help=(
             "Resume training from a checkpoint (.pth). "
-            "Pass a path, or use --resume alone to pick the latest checkpoint in output_dir."
+            "Pass a path, or use --resume alone to pick the latest checkpoint in output_dir. "
+            "If omitted, the latest checkpoint in output_dir is used automatically when present."
         ),
+    )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore existing checkpoint_*.pth in output_dir and start from pretrained.",
     )
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--seed", default=42, type=int)

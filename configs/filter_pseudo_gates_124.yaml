@@ -1,0 +1,27 @@
+# Cascade gates 1+2+4: conf → itm → xcons (vqascore / gate 3 off).
+defaults:
+  - filter_pseudo
+
+input: datasets/aokvqa/synthetic_data_raw.json
+image_root: datasets/coco2017
+output: datasets/aokvqa/synthetic_data_g124.json
+report: datasets/aokvqa/filter_report_g124.json
+
+gates:
+  conf:
+    enabled: true
+    keep_top: 0.75
+  itm:
+    enabled: true
+    keep_top: 0.75
+  vqascore:
+    enabled: false
+  xcons:
+    enabled: true
+    keep_top: 0.75
+    student_ckpt: cache/student_weights/checkpoint_09.pth
+
+score_cache:
+  dir: datasets/aokvqa/score_cache
+  save: true
+  merge_input_scores: true

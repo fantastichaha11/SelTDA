@@ -33,7 +33,11 @@ from data import create_dataset, create_sampler, create_loader
 from data.vqa_dataset import vqa_collate_fn
 from data.utils import save_result
 import cli
-from checkpoint_utils import load_training_checkpoint, resolve_resume_checkpoint
+from checkpoint_utils import (
+    load_training_checkpoint,
+    prune_checkpoints,
+    resolve_training_resume,
+)
 
 
 def train(model, data_loader, optimizer, epoch, device, wandb_logger=None):
@@ -196,7 +200,11 @@ def main(args, config):
         collate_fns=[vqa_collate_fn, None],
     )
     #### Model ####
-    resume_path = resolve_resume_checkpoint(args.resume, args.output_dir)
+    resume_path = resolve_training_resume(
+        args.resume,
+        args.output_dir,
+        auto=not args.no_resume,
+    )
     model_pretrained = resume_path if resume_path else config["pretrained"]
     if resume_path:
         print(f"Loading model weights for resume from {resume_path}")
@@ -283,6 +291,9 @@ def main(args, config):
                     save_obj,
                     os.path.join(args.output_dir, "checkpoint_%02d.pth" % epoch),
                 )
+                max_checkpoints = getattr(config, "max_checkpoints", None)
+                if max_checkpoints is not None:
+                    prune_checkpoints(args.output_dir, int(max_checkpoints))
 
         # dist.barrier()
 
