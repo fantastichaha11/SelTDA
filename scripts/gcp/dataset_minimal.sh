@@ -75,10 +75,16 @@ sed -i "s|IMAGES_ROOT = Path(\".*\")|IMAGES_ROOT = Path(\"${COCO_DIR}\")|" conve
 
 download_gdrive_file "19Y9oQNlYBTkoT4sYuUQWrEV9iUatPkdI" \
   cache/teacher_weights/checkpoint_04.pth "teacher checkpoint"
-download_gdrive_file "1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj" \
+download_gdrive_file "1qzTy2FE5s9zOijv7EePp1UwTZJbyU6kA" \
   cache/student_weights/checkpoint_09.pth "student checkpoint"
 download_gdrive_file "1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf" \
   "${AOKVQA_DIR}/synthetic_data_raw.json" "synthetic_data_raw.json"
+download_gdrive_file "1dsjMT7dMBGMJjCGZrOhMm4Cue9XiapTP" \
+  "${AOKVQA_DIR}/score_cache/synthetic_data_raw__xcons.json" \
+  "synthetic_data_raw__xcons.json (xcons score cache)"
+download_gdrive_file "1YbJcXvNCxX7v7J661K3tvk3hNnGDOwTK" \
+  "${AOKVQA_DIR}/synthetic_data_xcons_full.json" \
+  "synthetic_data_xcons_full.json"
 
 if [ -f "${AOKVQA_DIR}/train.json" ] && [ -f "${AOKVQA_DIR}/val.json" ]; then
   echo "[skip] A-OKVQA already converted (train.json + val.json)"

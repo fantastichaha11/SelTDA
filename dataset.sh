@@ -411,14 +411,14 @@ download_gdrive_file \
 # =========================
 # Download student checkpoint (VQA, A-OKVQA SelTDA)
 # Google Drive: checkpoint_09.pth
-# https://drive.google.com/file/d/1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj/view?usp=drive_link
+# https://drive.google.com/file/d/1qzTy2FE5s9zOijv7EePp1UwTZJbyU6kA/view?usp=drive_link
 # =========================
 
 STUDENT_DIR="${PROJECT_ROOT}/cache/student_weights"
 STUDENT_CKPT="${STUDENT_DIR}/checkpoint_09.pth"
 
 download_gdrive_file \
-    "1mZbIX4lfKNgdPq6j41CWjMpPM-xl_ewj" \
+    "1qzTy2FE5s9zOijv7EePp1UwTZJbyU6kA" \
     "${STUDENT_CKPT}" \
     "student checkpoint"
 
@@ -428,10 +428,17 @@ download_gdrive_file \
 # https://drive.google.com/file/d/1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf/view?usp=drive_link
 # synthetic_data_filter.json (saved as synthetic_data.json for train_vqa.py):
 # https://drive.google.com/file/d/1X_ok9p-VDT4h_4zEtLXLi7VTC5xGtSEj/view?usp=drive_link
+# synthetic_data_raw__xcons.json (precomputed xcons score cache):
+# https://drive.google.com/file/d/1dsjMT7dMBGMJjCGZrOhMm4Cue9XiapTP/view?usp=drive_link
+# synthetic_data_xcons_full.json (xcons-only filtered synthetic pool):
+# https://drive.google.com/file/d/1YbJcXvNCxX7v7J661K3tvk3hNnGDOwTK/view?usp=drive_link
 # =========================
 
 SYNTHETIC_RAW="${AOKVQA_DIR}/synthetic_data_raw.json"
 SYNTHETIC_FILTERED="${AOKVQA_DIR}/synthetic_data.json"
+SYNTHETIC_XCONS_FULL="${AOKVQA_DIR}/synthetic_data_xcons_full.json"
+SCORE_CACHE_DIR="${AOKVQA_DIR}/score_cache"
+XCONS_CACHE="${SCORE_CACHE_DIR}/synthetic_data_raw__xcons.json"
 
 download_gdrive_file \
     "1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf" \
@@ -442,5 +449,15 @@ download_gdrive_file \
     "1X_ok9p-VDT4h_4zEtLXLi7VTC5xGtSEj" \
     "${SYNTHETIC_FILTERED}" \
     "synthetic_data_filter.json → synthetic_data.json"
+
+download_gdrive_file \
+    "1dsjMT7dMBGMJjCGZrOhMm4Cue9XiapTP" \
+    "${XCONS_CACHE}" \
+    "synthetic_data_raw__xcons.json (xcons score cache)"
+
+download_gdrive_file \
+    "1YbJcXvNCxX7v7J661K3tvk3hNnGDOwTK" \
+    "${SYNTHETIC_XCONS_FULL}" \
+    "synthetic_data_xcons_full.json"
 
 echo "All done!"

@@ -28,6 +28,8 @@
 # Published synthetic data (downloaded by dataset.sh if missing):
 #   synthetic_data_raw.json — https://drive.google.com/file/d/1WH8SG1FPtUqaNNDWtFrl7SZnC-4pfWlf/view?usp=drive_link
 #   synthetic_data_filter.json → synthetic_data.json — https://drive.google.com/file/d/1X_ok9p-VDT4h_4zEtLXLi7VTC5xGtSEj/view?usp=drive_link
+#   synthetic_data_raw__xcons.json — https://drive.google.com/file/d/1dsjMT7dMBGMJjCGZrOhMm4Cue9XiapTP/view?usp=drive_link
+#   synthetic_data_xcons_full.json — https://drive.google.com/file/d/1YbJcXvNCxX7v7J661K3tvk3hNnGDOwTK/view?usp=drive_link
 #
 # COCO unlabeled (downloaded by dataset.sh if missing):
 #   http://images.cocodataset.org/zips/unlabeled2017.zip
