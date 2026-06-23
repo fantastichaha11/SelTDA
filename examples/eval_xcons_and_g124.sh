@@ -1,23 +1,22 @@
 #!/bin/bash
-# Evaluate A-OKVQA validation set for both self-trained students:
-#   1) xcons  — cache/self_trained_weights_xcons
-#   2) g124   — cache/self_trained_weights_g124
+# A-OKVQA multiple-choice eval for both self-trained students (aokvqa_mc_eval.ipynb).
 #
 # Prerequisites:
 #   conda activate blip
 #   export PYTHONNOUSERSITE=1
+#   datasets/aokvqa/aokvqa_v1p0_val.json  (from dataset.sh)
 #   Training finished (bash examples/train_xcons_and_g124.sh)
 #
 # Optional env:
-#   NUM_GPUS=1
-#   CHECKPOINT_XCONS=path/to/checkpoint_XX.pth   (default: latest in train dir)
+#   CHECKPOINT_XCONS=path/to/checkpoint_XX.pth
 #   CHECKPOINT_G124=path/to/checkpoint_XX.pth
+#   DEVICE=cuda
 #   SKIP_XCONS_EVAL=1
 #   SKIP_G124_EVAL=1
 #
 # Results:
-#   cache/evals_xcons/result/vqa_result.json
-#   cache/evals_g124/result/vqa_result.json
+#   cache/evals_xcons/mc_eval_result.json
+#   cache/evals_g124/mc_eval_result.json
 
 set -euo pipefail
 
@@ -35,12 +34,14 @@ TRAIN_G124="${PROJECT_ROOT}/cache/self_trained_weights_g124"
 EVAL_XCONS="${PROJECT_ROOT}/cache/evals_xcons"
 EVAL_G124="${PROJECT_ROOT}/cache/evals_g124"
 
-NUM_GPUS="${NUM_GPUS:-1}"
+DEVICE="${DEVICE:-cuda}"
 
 die() {
   echo "ERROR: $*" >&2
   exit 1
 }
+
+[ -f "${AOKVQA_DIR}/aokvqa_v1p0_val.json" ] || die "Missing ${AOKVQA_DIR}/aokvqa_v1p0_val.json (run dataset.sh)"
 
 latest_checkpoint() {
   local train_dir="$1"
@@ -64,29 +65,27 @@ resolve_checkpoint() {
   echo "${ckpt}"
 }
 
+COMMON_OVERRIDES=(
+  "vqa_root='${COCO_DIR}'"
+  "ann_root='${AOKVQA_DIR}'"
+)
+
 run_eval() {
   local label="$1"
   local ckpt="$2"
   local eval_dir="$3"
 
   mkdir -p "${eval_dir}"
-  echo "========== Eval: ${label} =========="
+  echo "========== MC eval: ${label} =========="
   echo "  checkpoint: ${ckpt}"
-  echo "  output:     ${eval_dir}"
+  echo "  output:     ${eval_dir}/mc_eval_result.json"
 
-  python -m torch.distributed.run --nproc_per_node="${NUM_GPUS}" train_vqa.py \
-    --output_dir="${eval_dir}" \
-    --evaluate \
-    --no-resume \
+  python aokvqa_mc_eval.py \
+    --checkpoint "${ckpt}" \
     --config configs/aokvqa.yaml \
-    --overrides \
-      "vqa_root='${COCO_DIR}'" \
-      "ann_root='${AOKVQA_DIR}'" \
-      "pretrained='${ckpt}'" \
-      use_validation_set_as_test_set=true \
-      wandb=false
-
-  echo "  result: ${eval_dir}/result/vqa_result.json"
+    --device "${DEVICE}" \
+    --output "${eval_dir}/mc_eval_result.json" \
+    --overrides "${COMMON_OVERRIDES[@]}"
 }
 
 if [ "${SKIP_XCONS_EVAL:-0}" != "1" ]; then
@@ -103,8 +102,8 @@ else
   echo "SKIP_G124_EVAL=1 — skipping g124 eval."
 fi
 
-echo "========== Evaluation finished =========="
-[ -f "${EVAL_XCONS}/result/vqa_result.json" ] && \
-  echo "  xcons: ${EVAL_XCONS}/result/vqa_result.json"
-[ -f "${EVAL_G124}/result/vqa_result.json" ] && \
-  echo "  g124:  ${EVAL_G124}/result/vqa_result.json"
+echo "========== MC evaluation finished =========="
+[ -f "${EVAL_XCONS}/mc_eval_result.json" ] && \
+  echo "  xcons: ${EVAL_XCONS}/mc_eval_result.json"
+[ -f "${EVAL_G124}/mc_eval_result.json" ] && \
+  echo "  g124:  ${EVAL_G124}/mc_eval_result.json"
