@@ -63,25 +63,37 @@ def evaluate_mc(
     model_choices: list[str] = []
     correct_choices: list[str] = []
 
-    for n, (image, question, _question_id) in tqdm(
-        enumerate(val_loader), total=len(val_loader), desc="A-OKVQA MC eval"
-    ):
-        ann = val_annotations[n]
-        answer_list = ann["choices"]
-        answer_candidates = prep_answer_candidates(model, answer_list, device=device)
+    sample_idx = 0
+    progress = tqdm(total=len(val_loader.dataset), desc="A-OKVQA MC eval")
+    for image, question, _question_id in val_loader:
+        batch_size = int(image.shape[0])
         image = image.to(device, non_blocking=True)
-        correct_answer = answer_list[ann["correct_choice_idx"]]
 
-        answer_ids = model(
-            image,
-            question,
-            answer_candidates,
-            train=False,
-            inference="rank",
-            k_test=len(answer_list),
-        )
-        model_choices.append(answer_list[answer_ids])
-        correct_choices.append(correct_answer)
+        for b in range(batch_size):
+            ann = val_annotations[sample_idx]
+            answer_list = ann["choices"]
+            answer_candidates = prep_answer_candidates(model, answer_list, device=device)
+            correct_answer = answer_list[ann["correct_choice_idx"]]
+
+            if isinstance(question, (list, tuple)):
+                sample_question = [question[b]]
+            else:
+                sample_question = [question]
+
+            answer_ids = model(
+                image[b : b + 1],
+                sample_question,
+                answer_candidates,
+                train=False,
+                inference="rank",
+                k_test=len(answer_list),
+            )
+            answer_id = int(answer_ids.detach().cpu().reshape(-1)[0].item())
+            model_choices.append(answer_list[answer_id])
+            correct_choices.append(correct_answer)
+            sample_idx += 1
+            progress.update(1)
+    progress.close()
 
     correct = sum(m == c for m, c in zip(model_choices, correct_choices))
     total = len(model_choices)
