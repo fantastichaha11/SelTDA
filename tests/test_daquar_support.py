@@ -2,9 +2,11 @@ import csv
 import json
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from convert_daquar import VAL_ID_OFFSET, convert_daquar_dataset
+from daquar_eval import evaluate_daquar
 
 
 def _write_image(path: Path) -> None:
@@ -162,3 +164,81 @@ def test_convert_daquar_dataset_outputs_generic_records_from_raw_text(tmp_path):
     assert val[0]["question"] == "how many bottles are on the desk?"
     assert val[0]["question_id"] == VAL_ID_OFFSET
     assert val[0]["answer"] == ["11"]
+
+
+def test_daquar_eval_exact_match_and_question_prefix(tmp_path):
+    annotations = [
+        {
+            "question_id": 1,
+            "question": "What is on the table?",
+            "image": "a.png",
+            "dataset": "daquar",
+            "answer": ["book"],
+        },
+        {
+            "question_id": 2,
+            "question": "Where is the chair?",
+            "image": "b.png",
+            "dataset": "daquar",
+            "answer": ["kitchen"],
+        },
+    ]
+    results = [
+        {"question_id": 1, "answer": "Book!"},
+        {"question_id": 2, "answer": "bedroom"},
+    ]
+    ann_path = tmp_path / "val.json"
+    result_path = tmp_path / "vqa_result.json"
+    ann_path.write_text(json.dumps(annotations))
+    result_path.write_text(json.dumps(results))
+
+    metrics = evaluate_daquar(result_path, ann_path)
+
+    assert metrics["overall"] == 0.5
+    assert metrics["by_question_prefix"]["what"] == 1.0
+    assert metrics["by_question_prefix"]["where"] == 0.0
+
+
+def test_daquar_eval_allows_duplicate_predictions_with_same_answer(tmp_path):
+    annotations = [
+        {
+            "question_id": 1,
+            "question": "What is on the table?",
+            "image": "a.png",
+            "dataset": "daquar",
+            "answer": ["book"],
+        }
+    ]
+    results = [
+        {"question_id": 1, "answer": "Book!"},
+        {"question_id": 1, "answer": "book"},
+    ]
+    ann_path = tmp_path / "val.json"
+    result_path = tmp_path / "vqa_result.json"
+    ann_path.write_text(json.dumps(annotations))
+    result_path.write_text(json.dumps(results))
+
+    assert evaluate_daquar(result_path, ann_path)["overall"] == 1.0
+
+
+def test_daquar_eval_rejects_conflicting_duplicate_predictions(tmp_path):
+    annotations = [
+        {
+            "question_id": 1,
+            "question": "What is on the table?",
+            "image": "a.png",
+            "dataset": "daquar",
+            "answer": ["book"],
+        }
+    ]
+    results = [
+        {"question_id": 1, "answer": "book"},
+        {"question_id": 1, "answer": "chair"},
+    ]
+    ann_path = tmp_path / "val.json"
+    result_path = tmp_path / "vqa_result.json"
+    ann_path.write_text(json.dumps(annotations))
+    result_path.write_text(json.dumps(results))
+
+    with pytest.raises(ValueError, match="Conflicting duplicate prediction"):
+        evaluate_daquar(result_path, ann_path)
