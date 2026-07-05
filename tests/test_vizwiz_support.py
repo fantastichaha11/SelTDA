@@ -12,6 +12,7 @@ from dataset_adapters.generic_vqa import (
     write_json,
 )
 from convert_vizwiz import convert_vizwiz_dataset
+from vizwiz_eval import evaluate_vizwiz
 
 
 def test_normalize_answer_basic_punctuation_and_case():
@@ -124,3 +125,45 @@ def test_convert_vizwiz_dataset_outputs_generic_records(tmp_path):
     assert answer_list == ["can", "soda", "text", "unanswerable"]
     assert metadata["1000000"]["answerable"] == 0
     assert metadata["1000000"]["answer_type"] == "unanswerable"
+
+
+def test_vizwiz_eval_soft_accuracy_and_strata(tmp_path):
+    annotations = [
+        {
+            "dataset": "vizwiz",
+            "image": "val/VizWiz_val_00000001.jpg",
+            "question": "What is this?",
+            "question_id": 1000000,
+            "answer": ["can", "can", "can"],
+        },
+        {
+            "dataset": "vizwiz",
+            "image": "val/VizWiz_val_00000002.jpg",
+            "question": "Can this be answered?",
+            "question_id": 1000001,
+            "answer": ["unanswerable", "unanswerable", "text"],
+        },
+    ]
+    metadata = {
+        "1000000": {"answerable": 1, "answer_type": "other"},
+        "1000001": {"answerable": 0, "answer_type": "unanswerable"},
+    }
+    results = [
+        {"question_id": 1000000, "answer": "can"},
+        {"question_id": 1000001, "answer": "unanswerable"},
+    ]
+
+    ann_path = tmp_path / "val.json"
+    meta_path = tmp_path / "vizwiz_val_metadata.json"
+    result_path = tmp_path / "result.json"
+    write_json(ann_path, annotations)
+    write_json(meta_path, metadata)
+    write_json(result_path, results)
+
+    metrics = evaluate_vizwiz(result_path, ann_path, meta_path)
+
+    assert metrics["overall"] == 0.8333
+    assert metrics["answerable"] == 1.0
+    assert metrics["unanswerable"] == 0.6667
+    assert metrics["by_answer_type"]["other"] == 1.0
+    assert metrics["by_answer_type"]["unanswerable"] == 0.6667
