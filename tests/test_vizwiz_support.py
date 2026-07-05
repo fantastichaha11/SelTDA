@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from PIL import Image
+
 from dataset_adapters.generic_vqa import (
     build_answer_list,
     exact_match_accuracy,
@@ -9,6 +11,7 @@ from dataset_adapters.generic_vqa import (
     vqa_soft_accuracy,
     write_json,
 )
+from convert_vizwiz import convert_vizwiz_dataset
 
 
 def test_normalize_answer_basic_punctuation_and_case():
@@ -55,3 +58,69 @@ def test_write_json_creates_parent_directory(tmp_path):
     out = tmp_path / "nested" / "data.json"
     write_json(out, [{"a": 1}])
     assert json.loads(out.read_text()) == [{"a": 1}]
+
+
+def _write_image(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (2, 2), color=(255, 255, 255)).save(path)
+
+
+def test_convert_vizwiz_dataset_outputs_generic_records(tmp_path):
+    root = tmp_path / "vizwiz"
+    train_img = root / "images" / "train" / "VizWiz_train_00000001.jpg"
+    val_img = root / "images" / "val" / "VizWiz_val_00000001.jpg"
+    _write_image(train_img)
+    _write_image(val_img)
+
+    ann_dir = root / "annotations"
+    ann_dir.mkdir(parents=True)
+    train_annotations = [
+        {
+            "image": "VizWiz_train_00000001.jpg",
+            "question": "What drink is this?",
+            "answerable": 1,
+            "answer_type": "other",
+            "answers": [
+                {"answer": "Soda", "answer_confidence": "yes"},
+                {"answer": "soda", "answer_confidence": "yes"},
+                {"answer": "can", "answer_confidence": "maybe"},
+            ],
+        }
+    ]
+    val_annotations = [
+        {
+            "image": "VizWiz_val_00000001.jpg",
+            "question": "Can this be answered?",
+            "answerable": 0,
+            "answer_type": "unanswerable",
+            "answers": [
+                {"answer": "unanswerable", "answer_confidence": "yes"},
+                {"answer": "unanswerable", "answer_confidence": "yes"},
+                {"answer": "text", "answer_confidence": "no"},
+            ],
+        }
+    ]
+    (ann_dir / "train.json").write_text(json.dumps(train_annotations))
+    (ann_dir / "val.json").write_text(json.dumps(val_annotations))
+
+    convert_vizwiz_dataset(root, output_root=root)
+
+    train = json.loads((root / "train.json").read_text())
+    val = json.loads((root / "val.json").read_text())
+    answer_list = json.loads((root / "answer_list.json").read_text())
+    metadata = json.loads((root / "vizwiz_val_metadata.json").read_text())
+
+    assert train == [
+        {
+            "dataset": "vizwiz",
+            "image": "train/VizWiz_train_00000001.jpg",
+            "question": "What drink is this?",
+            "question_id": 0,
+            "answer": ["soda", "soda", "can"],
+        }
+    ]
+    assert val[0]["image"] == "val/VizWiz_val_00000001.jpg"
+    assert val[0]["answer"] == ["unanswerable", "unanswerable", "text"]
+    assert answer_list == ["can", "soda", "text", "unanswerable"]
+    assert metadata["1000000"]["answerable"] == 0
+    assert metadata["1000000"]["answer_type"] == "unanswerable"
