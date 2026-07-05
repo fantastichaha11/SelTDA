@@ -1,7 +1,9 @@
 import csv
 import json
+from argparse import Namespace
 from pathlib import Path
 
+import cli
 import pytest
 from PIL import Image
 
@@ -242,3 +244,20 @@ def test_daquar_eval_rejects_conflicting_duplicate_predictions(tmp_path):
 
     with pytest.raises(ValueError, match="Conflicting duplicate prediction"):
         evaluate_daquar(result_path, ann_path)
+
+
+def test_daquar_config_composes_with_local_overrides(tmp_path):
+    args = Namespace(
+        config="configs/daquar.yaml",
+        overrides=[
+            f"ann_root='{tmp_path}'",
+            f"vqa_root='{tmp_path / 'images'}'",
+            "wandb=false",
+            "torch_home=null",
+        ],
+    )
+    config = cli.load_config(args)
+
+    assert config.dataset_name == "generic_vqa"
+    assert list(config.train_files) == ["train"]
+    assert config.val_file == "val"

@@ -1,6 +1,8 @@
 import json
+from argparse import Namespace
 from pathlib import Path
 
+import cli
 from PIL import Image
 
 from dataset_adapters.generic_vqa import (
@@ -167,3 +169,20 @@ def test_vizwiz_eval_soft_accuracy_and_strata(tmp_path):
     assert metrics["unanswerable"] == 0.6667
     assert metrics["by_answer_type"]["other"] == 1.0
     assert metrics["by_answer_type"]["unanswerable"] == 0.6667
+
+
+def test_vizwiz_config_composes_with_local_overrides(tmp_path):
+    args = Namespace(
+        config="configs/vizwiz.yaml",
+        overrides=[
+            f"ann_root='{tmp_path}'",
+            f"vqa_root='{tmp_path / 'images'}'",
+            "wandb=false",
+            "torch_home=null",
+        ],
+    )
+    config = cli.load_config(args)
+
+    assert config.dataset_name == "generic_vqa"
+    assert list(config.train_files) == ["train"]
+    assert config.val_file == "val"
