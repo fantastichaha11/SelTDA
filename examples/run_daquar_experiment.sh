@@ -28,8 +28,8 @@ checkpoint_name() {
 DATASETS_DIR="${DATASETS_DIR:-${PROJECT_ROOT}/datasets}"
 DAQUAR_DIR="${DAQUAR_DIR:-${DATASETS_DIR}/daquar}"
 DAQUAR_IMAGES="${DAQUAR_IMAGES:-${DAQUAR_DIR}/images}"
-DAQUAR_TRAIN_QA="${DAQUAR_TRAIN_QA:-${DAQUAR_DIR}/qa_train.json}"
-DAQUAR_TEST_QA="${DAQUAR_TEST_QA:-${DAQUAR_DIR}/qa_test.json}"
+DAQUAR_TRAIN_QA="${DAQUAR_TRAIN_QA:-${DAQUAR_DIR}/qa.37.raw.train.txt}"
+DAQUAR_TEST_QA="${DAQUAR_TEST_QA:-${DAQUAR_DIR}/qa.37.raw.reduced.test.txt}"
 
 NUM_GPUS="${NUM_GPUS:-1}"
 VQA_EPOCHS="${VQA_EPOCHS:-10}"
@@ -58,6 +58,13 @@ ENABLE_XCONS="$(bool_value "${ENABLE_XCONS:-1}")"
 RUN_BASELINE="$(bool_value "${RUN_BASELINE:-1}")"
 
 mkdir -p "${BASELINE_OUTPUT_DIR}" "${STUDENT_OUTPUT_DIR}" "${GEN_OUTPUT_DIR}" "${FILTER_OUTPUT_DIR}"
+
+echo "========== Step 0: Download DAQUAR =========="
+if [ "${SKIP_DOWNLOAD:-0}" != "1" ]; then
+    python scripts/download_daquar.py --output-root "${DAQUAR_DIR}"
+else
+    echo "SKIP_DOWNLOAD=1 - reusing ${DAQUAR_DIR}"
+fi
 
 echo "========== Step 1: Convert DAQUAR =========="
 if [ "${SKIP_CONVERT:-0}" != "1" ]; then

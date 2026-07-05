@@ -60,6 +60,13 @@ RUN_BASELINE="$(bool_value "${RUN_BASELINE:-1}")"
 
 mkdir -p "${BASELINE_OUTPUT_DIR}" "${STUDENT_OUTPUT_DIR}" "${GEN_OUTPUT_DIR}" "${FILTER_OUTPUT_DIR}"
 
+echo "========== Step 0: Download VizWiz =========="
+if [ "${SKIP_DOWNLOAD:-0}" != "1" ]; then
+    python scripts/download_vizwiz.py --output-root "${VIZWIZ_DIR}"
+else
+    echo "SKIP_DOWNLOAD=1 - reusing ${VIZWIZ_DIR}"
+fi
+
 echo "========== Step 1: Convert VizWiz =========="
 if [ "${SKIP_CONVERT:-0}" != "1" ]; then
     [ -f "${VIZWIZ_TRAIN_ANNOTATIONS}" ] || die "Missing ${VIZWIZ_TRAIN_ANNOTATIONS}"
