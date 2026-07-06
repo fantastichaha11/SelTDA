@@ -21,6 +21,15 @@ weight_decay: 0.05
 min_lr: 0
 max_epoch: 10
 torch_home: null
-wandb: false
+wandb: true
+wandb_project: seltda
+wandb_entity: null
+wandb_name: null
+wandb_group: daquar
+wandb_tags: ['daquar', 'vqa', 'augmentation']
+wandb_mode: online
+wandb_watch_model: true
+wandb_watch_log: all
+wandb_watch_log_freq: 100
 save_last_only: false
 max_checkpoints: 3

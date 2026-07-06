@@ -50,3 +50,12 @@ max_epoch: 5
 
 torch_home: /net/acadia10a/data/zkhan/torch_home
 wandb: true
+wandb_project: seltda
+wandb_entity: null
+wandb_name: null
+wandb_group: pathvqa
+wandb_tags: ['pathvqa', 'vqg', 'teacher']
+wandb_mode: online
+wandb_watch_model: true
+wandb_watch_log: all
+wandb_watch_log_freq: 100

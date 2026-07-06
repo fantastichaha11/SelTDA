@@ -33,6 +33,7 @@ from data import create_dataset, create_sampler, create_loader
 from data.vqa_dataset import vqa_collate_fn
 from data.utils import save_result
 import cli
+import wandb_utils
 from checkpoint_utils import (
     load_training_checkpoint,
     prune_checkpoints,
@@ -160,6 +161,7 @@ def evaluation(model, data_loader, device, config):
 
 def main(args, config):
     utils.init_distributed_mode(args)
+    wandb_logger = wandb_utils.init_wandb(args, config, job_type="vqa-train")
 
     device = torch.device(args.device)
 
@@ -170,19 +172,20 @@ def main(args, config):
     random.seed(seed)
     cudnn.benchmark = True
 
-    # if utils.is_main_process() and config.wandb:
-    #     print("Is main process, creating W&B logger.")
-    #     wandb_logger = wandb.init(
-    #         project="mithril-alice-valley",
-    #         entity="zakh",
-    #         config=OmegaConf.to_container(config),
-    #     )
-    # else:
-    #     wandb_logger = None
-
     #### Dataset ####
     print("Creating vqa datasets")
     datasets = create_dataset(config.dataset_name, config)
+    if utils.is_main_process():
+        wandb_logger.update_summary(
+            {
+                "train_dataset_size": len(datasets[0]),
+                "eval_dataset_size": len(datasets[1]),
+                "world_size": utils.get_world_size(),
+                "seed": seed,
+                "evaluate_only": args.evaluate,
+            },
+            prefix="run",
+        )
 
     if args.distributed:
         num_tasks = utils.get_world_size()
@@ -208,6 +211,14 @@ def main(args, config):
     model_pretrained = resume_path if resume_path else config["pretrained"]
     if resume_path:
         print(f"Loading model weights for resume from {resume_path}")
+    if utils.is_main_process():
+        wandb_logger.update_summary(
+            {
+                "resume_path": resume_path or "",
+                "pretrained": str(model_pretrained),
+            },
+            prefix="run",
+        )
 
     print("Creating model")
     model = blip_vqa(
@@ -219,6 +230,12 @@ def main(args, config):
     )
 
     model = model.to(device)
+    if utils.is_main_process() and bool(OmegaConf.select(config, "wandb_watch_model", default=True)):
+        wandb_logger.watch_model(
+            model,
+            log=str(OmegaConf.select(config, "wandb_watch_log", default="all")),
+            log_freq=int(OmegaConf.select(config, "wandb_watch_log_freq", default=100)),
+        )
 
     model_without_ddp = model
     if args.distributed:
@@ -262,6 +279,9 @@ def main(args, config):
             train_stats = train(
                 model, train_loader, optimizer, epoch, device
             )
+            if utils.is_main_process():
+                wandb_logger.log_metrics(train_stats, prefix="train", step=epoch)
+                wandb_logger.log_metrics({"epoch": epoch}, prefix="run", step=epoch)
 
         else:
             break
@@ -291,6 +311,12 @@ def main(args, config):
                     save_obj,
                     os.path.join(args.output_dir, "checkpoint_%02d.pth" % epoch),
                 )
+                wandb_logger.log_artifact(
+                    os.path.join(args.output_dir, "checkpoint_%02d.pth" % epoch),
+                    name=f"{Path(args.output_dir).name}-checkpoint-{epoch:02d}",
+                    artifact_type="model",
+                    metadata={"epoch": epoch, "dataset_name": str(config.dataset_name)},
+                )
                 max_checkpoints = getattr(config, "max_checkpoints", None)
                 if max_checkpoints is not None:
                     prune_checkpoints(args.output_dir, int(max_checkpoints))
@@ -299,10 +325,26 @@ def main(args, config):
 
     vqa_result = evaluation(model_without_ddp, test_loader, device, config)
     result_file = save_result(vqa_result, args.result_dir, "vqa_result")
+    if utils.is_main_process():
+        wandb_logger.log_metrics({"num_eval_predictions": len(vqa_result)}, prefix="eval")
+        wandb_logger.log_artifact(
+            result_file,
+            name=f"{Path(args.output_dir).name}-vqa-result",
+            artifact_type="result",
+            metadata={"num_predictions": len(vqa_result), "dataset_name": str(config.dataset_name)},
+        )
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print("Training time {}".format(total_time_str))
+    if utils.is_main_process():
+        wandb_logger.update_summary({"total_seconds": total_time}, prefix="run")
+        wandb_logger.log_artifact(
+            os.path.join(args.output_dir, "config.yaml"),
+            name=f"{Path(args.output_dir).name}-config",
+            artifact_type="config",
+        )
+        wandb_logger.finish()
 
 
 if __name__ == "__main__":

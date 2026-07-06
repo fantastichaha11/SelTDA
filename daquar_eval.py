@@ -11,6 +11,7 @@ from dataset_adapters.generic_vqa import (
     question_prefix,
     write_json,
 )
+import wandb_utils
 
 
 METRIC_DECIMALS = 4
@@ -83,6 +84,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate DAQUAR generic VQA predictions.")
     parser.add_argument("result_file", type=Path)
     parser.add_argument("--annotation-file", type=Path, default=Path("datasets/daquar/val.json"))
+    parser.add_argument("--wandb", action="store_true", help="Log eval metrics and JSON artifact to W&B.")
+    parser.add_argument("--wandb-project", default="seltda")
+    parser.add_argument("--wandb-entity", default=None)
+    parser.add_argument("--wandb-name", default="daquar-eval")
+    parser.add_argument("--wandb-group", default="daquar")
+    parser.add_argument("--wandb-mode", default="online")
+    parser.add_argument("--wandb-tags", nargs="*", default=["daquar", "eval"])
     return parser.parse_args()
 
 
@@ -90,7 +98,27 @@ def main() -> None:
     args = parse_args()
     metrics = evaluate_daquar(args.result_file, args.annotation_file)
     print(metrics)
-    write_json(Path(args.result_file).parent / "daquar_eval.json", metrics)
+    eval_path = Path(args.result_file).parent / "daquar_eval.json"
+    write_json(eval_path, metrics)
+    if args.wandb:
+        logger = wandb_utils.init_wandb(
+            argparse.Namespace(output_dir=str(Path(args.result_file).parent), evaluate=True),
+            {
+                "wandb": True,
+                "wandb_project": args.wandb_project,
+                "wandb_entity": args.wandb_entity,
+                "wandb_name": args.wandb_name,
+                "wandb_group": args.wandb_group,
+                "wandb_mode": args.wandb_mode,
+                "wandb_tags": args.wandb_tags,
+                "dataset_name": "daquar",
+            },
+            job_type="daquar-eval",
+        )
+        logger.log_metrics(metrics, prefix="eval")
+        logger.update_summary(metrics, prefix="eval")
+        logger.log_artifact(eval_path, name="daquar-eval", artifact_type="eval", metadata=metrics)
+        logger.finish()
 
 
 if __name__ == "__main__":

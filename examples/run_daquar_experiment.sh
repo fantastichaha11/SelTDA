@@ -56,6 +56,10 @@ ENABLE_CONF="$(bool_value "${ENABLE_CONF:-1}")"
 ENABLE_ITM="$(bool_value "${ENABLE_ITM:-1}")"
 ENABLE_XCONS="$(bool_value "${ENABLE_XCONS:-1}")"
 RUN_BASELINE="$(bool_value "${RUN_BASELINE:-1}")"
+WANDB_ENABLED="$(bool_value "${WANDB_ENABLED:-1}")"
+WANDB_PROJECT="${WANDB_PROJECT:-seltda}"
+WANDB_ENTITY_OVERRIDE="${WANDB_ENTITY_OVERRIDE:-null}"
+WANDB_MODE_OVERRIDE="${WANDB_MODE_OVERRIDE:-online}"
 
 mkdir -p "${BASELINE_OUTPUT_DIR}" "${STUDENT_OUTPUT_DIR}" "${GEN_OUTPUT_DIR}" "${FILTER_OUTPUT_DIR}"
 
@@ -99,7 +103,12 @@ if [ "${RUN_BASELINE}" = "true" ]; then
                 "batch_size_test=${VQA_BATCH_SIZE_TEST}" \
                 "max_epoch=${VQA_EPOCHS}" \
                 "torch_home=${TORCH_HOME_OVERRIDE}" \
-                "wandb=false"
+                "wandb=${WANDB_ENABLED}" \
+                "wandb_project='${WANDB_PROJECT}'" \
+                "wandb_entity=${WANDB_ENTITY_OVERRIDE}" \
+                "wandb_name='daquar-baseline'" \
+                "wandb_group='daquar'" \
+                "wandb_mode='${WANDB_MODE_OVERRIDE}'"
     else
         echo "Baseline checkpoint exists: ${BASELINE_CKPT}"
     fi
@@ -172,7 +181,12 @@ if [ "${SKIP_TRAIN:-0}" != "1" ]; then
             "batch_size_test=${VQA_BATCH_SIZE_TEST}" \
             "max_epoch=${VQA_EPOCHS}" \
             "torch_home=${TORCH_HOME_OVERRIDE}" \
-            "wandb=false"
+            "wandb=${WANDB_ENABLED}" \
+            "wandb_project='${WANDB_PROJECT}'" \
+            "wandb_entity=${WANDB_ENTITY_OVERRIDE}" \
+            "wandb_name='daquar-student'" \
+            "wandb_group='daquar'" \
+            "wandb_mode='${WANDB_MODE_OVERRIDE}'"
 else
     echo "SKIP_TRAIN=1 - skipping student train"
 fi
@@ -180,7 +194,21 @@ fi
 echo "========== Step 6: Evaluate DAQUAR =========="
 RESULT_FILE="${STUDENT_OUTPUT_DIR}/result/vqa_result.json"
 if [ "${SKIP_EVAL:-0}" != "1" ] && [ -f "${RESULT_FILE}" ]; then
+    EVAL_WANDB_ARGS=()
+    if [ "${WANDB_ENABLED}" = "true" ]; then
+        EVAL_WANDB_ARGS+=(
+            --wandb
+            --wandb-project "${WANDB_PROJECT}"
+            --wandb-name "daquar-eval"
+            --wandb-group "daquar"
+            --wandb-mode "${WANDB_MODE_OVERRIDE}"
+        )
+        if [ -n "${WANDB_ENTITY_OVERRIDE}" ] && [ "${WANDB_ENTITY_OVERRIDE}" != "null" ]; then
+            EVAL_WANDB_ARGS+=(--wandb-entity "${WANDB_ENTITY_OVERRIDE}")
+        fi
+    fi
     python daquar_eval.py \
         --annotation-file "${DAQUAR_DIR}/val.json" \
+        "${EVAL_WANDB_ARGS[@]}" \
         "${RESULT_FILE}"
 fi
