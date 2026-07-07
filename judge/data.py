@@ -201,7 +201,7 @@ def load_image_pool(image_pool_config: Mapping) -> list[ImagePoolItem]:
             ImagePoolItem(
                 image=image,
                 image_path=str(image_root / image),
-                question=str(record["question"]) if use_ground_truth_qa else None,
+                question=normalize_answer(record.get("question", "")) if use_ground_truth_qa else None,
                 answer=answer_text(record.get("answer", "")) if use_ground_truth_qa else None,
             )
         )

@@ -2,10 +2,12 @@
 
 from judge.data import (
     AnswerPools,
+    GENERIC_MEDICAL_ANSWERS,
     ImagePoolItem,
     JudgeCandidate,
     JudgePair,
     NegativeSampler,
+    YES_NO,
     answer_text,
     build_answer_pools,
     build_judge_pairs,
@@ -17,10 +19,12 @@ from judge.data import (
 
 __all__ = [
     "AnswerPools",
+    "GENERIC_MEDICAL_ANSWERS",
     "ImagePoolItem",
     "JudgeCandidate",
     "JudgePair",
     "NegativeSampler",
+    "YES_NO",
     "answer_text",
     "build_answer_pools",
     "build_judge_pairs",
