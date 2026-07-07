@@ -92,6 +92,21 @@ def test_build_judge_pairs_emits_positive_and_negative_candidates():
     assert pairs[0].negative.answer == "no"
 
 
+def test_build_judge_pairs_honors_zero_negatives_per_positive():
+    train = [
+        {"image": "img/a.jpg", "question": "Is this benign?", "answer": "yes"},
+    ]
+
+    pairs = build_judge_pairs(
+        records=train,
+        pools=build_answer_pools(train),
+        seed=11,
+        negatives_per_positive=0,
+    )
+
+    assert pairs == []
+
+
 def test_load_image_pool_deduplicates_images_and_strips_gt_qa_when_disabled(tmp_path):
     ann = tmp_path / "train.json"
     _write_json(

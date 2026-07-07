@@ -169,12 +169,13 @@ def build_judge_pairs(
 ) -> list[JudgePair]:
     sampler = NegativeSampler(pools, seed=seed)
     pairs: list[JudgePair] = []
+    negative_count = max(0, int(negatives_per_positive))
 
     for record in records:
         positive_answer = answer_text(record.get("answer", ""))
         if not positive_answer:
             continue
-        for _ in range(max(1, int(negatives_per_positive))):
+        for _ in range(negative_count):
             negative_answer = sampler.sample(record)
             pairs.append(
                 JudgePair(
