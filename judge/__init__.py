@@ -28,6 +28,16 @@ from judge.prometheus import (
     parse_prometheus_score,
     score_to_reward,
 )
+from judge.reward import (
+    apply_reward_penalties,
+    batch_diagnostics,
+    compute_pairwise_metrics,
+    duplicate_question_penalties,
+    generic_answer_penalty,
+    group_normalized_advantages,
+    length_penalty,
+    score_distribution,
+)
 
 __all__ = [
     "AnswerPools",
@@ -44,14 +54,22 @@ __all__ = [
     "StaticPrometheusScorer",
     "YES_NO",
     "_feedback_from_raw",
+    "apply_reward_penalties",
     "answer_text",
+    "batch_diagnostics",
     "build_answer_pools",
     "build_judge_pairs",
     "build_prometheus_prompt",
+    "compute_pairwise_metrics",
+    "duplicate_question_penalties",
+    "generic_answer_penalty",
+    "group_normalized_advantages",
     "infer_answer_type",
+    "length_penalty",
     "load_image_pool",
     "load_records",
     "parse_prometheus_score",
     "question_prefix",
+    "score_distribution",
     "score_to_reward",
 ]
