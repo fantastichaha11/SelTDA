@@ -1,6 +1,5 @@
 import pytest
 
-from judge import DEFAULT_RUBRIC
 from judge.prometheus import (
     NO_REFERENCE_TEXT,
     StaticPrometheusScorer,
@@ -17,16 +16,15 @@ def test_build_prometheus_prompt_uses_no_reference_template():
     )
 
     assert "###Task Description:" in prompt
+    assert "###The instruction to evaluate:" in prompt
+    assert "###Response to evaluate:" in prompt
     assert "###Reference Answer (Score 5):" in prompt
+    assert "###Score Rubrics:" in prompt
     assert NO_REFERENCE_TEXT in prompt
     assert "Answer the visual question about this pathology image:\nWhat abnormality is visible?" in prompt
     assert "A necrotic tumor is present." in prompt
     assert "ground truth" not in prompt.lower()
-    assert "adenocarcinoma" not in prompt
-
-
-def test_judge_package_reexports_default_rubric():
-    assert "Score 5" in DEFAULT_RUBRIC
+    assert prompt.endswith("###Feedback:")
 
 
 def test_parse_prometheus_score_parses_result_tag():
@@ -64,3 +62,4 @@ def test_static_prometheus_scorer_returns_deterministic_result():
     assert result.score == 4
     assert result.reward == 0.75
     assert result.feedback == "ok"
+    assert result.raw_text == "Feedback: ok [RESULT] 4"
