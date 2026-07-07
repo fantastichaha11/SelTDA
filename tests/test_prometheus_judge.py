@@ -16,6 +16,17 @@ def test_build_prometheus_prompt_uses_no_reference_template():
     )
 
     assert "###Task Description:" in prompt
+    assert (
+        "An instruction, a response to evaluate, an image, a score rubric, and a neutral no-reference field are given."
+        in prompt
+    )
+    assert "1. Write detailed feedback that assesses the response strictly based on the score rubric." in prompt
+    assert "2. After writing feedback, write a score that is an integer between 1 and 5." in prompt
+    assert (
+        "3. The output format should be: Feedback: (feedback) [RESULT] (integer number between 1 and 5)"
+        in prompt
+    )
+    assert "4. Do not generate any other opening, closing, or explanation." in prompt
     assert "###The instruction to evaluate:" in prompt
     assert "###Response to evaluate:" in prompt
     assert "###Reference Answer (Score 5):" in prompt
@@ -33,6 +44,10 @@ def test_parse_prometheus_score_parses_result_tag():
 
 def test_parse_prometheus_score_parses_score_label():
     assert parse_prometheus_score("Feedback: too generic. Score: 2") == 2
+
+
+def test_parse_prometheus_score_parses_score_is_form():
+    assert parse_prometheus_score("Feedback: grounded, score is 5") == 5
 
 
 def test_parse_prometheus_score_raises_when_missing():

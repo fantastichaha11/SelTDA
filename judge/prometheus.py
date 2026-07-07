@@ -48,10 +48,11 @@ def build_prometheus_prompt(
     instruction = "Answer the visual question about this pathology image:\n" + question
     return (
         "###Task Description:\n"
-        "You are evaluating the quality of a candidate answer to a visual pathology question.\n"
-        "Use only the pathology image, the question instruction, the candidate answer, and the scoring rubric.\n"
-        "Do not assume any hidden reference information beyond the provided inputs.\n"
-        "Provide concise feedback and then a single integer score from 1 to 5.\n\n"
+        "An instruction, a response to evaluate, an image, a score rubric, and a neutral no-reference field are given.\n"
+        "1. Write detailed feedback that assesses the response strictly based on the score rubric.\n"
+        "2. After writing feedback, write a score that is an integer between 1 and 5.\n"
+        "3. The output format should be: Feedback: (feedback) [RESULT] (integer number between 1 and 5)\n"
+        "4. Do not generate any other opening, closing, or explanation.\n\n"
         "###The instruction to evaluate:\n"
         f"{instruction}\n\n"
         "###Response to evaluate:\n"
