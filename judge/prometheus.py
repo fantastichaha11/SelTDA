@@ -86,7 +86,14 @@ def score_to_reward(score: int) -> float:
 
 def _feedback_from_raw(raw_text: str) -> str:
     text = raw_text.strip()
-    return text.split("[RESULT]", 1)[0].replace("Feedback:", "").strip()
+    text = re.sub(r"^\s*Feedback:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\s*(?:\[\s*RESULT\s*\]\s*[1-5]\b|Score\s*:\s*[1-5]\b|score\s+is\s+[1-5]\b)\s*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return text.strip()
 
 
 class StaticPrometheusScorer:
@@ -216,7 +223,22 @@ class PrometheusVisionScorer:
                 use_cache=True,
             )
 
-        return self._tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+        generated_ids = output_ids
+        input_token_count = input_ids.shape[1]
+        if output_ids.shape[1] >= input_token_count:
+            output_prefix = output_ids[:, :input_token_count]
+            same_prefix = False
+            if hasattr(output_prefix, "equal"):
+                same_prefix = output_prefix.equal(input_ids)
+            else:
+                try:
+                    same_prefix = output_prefix.tolist() == input_ids.tolist()
+                except AttributeError:
+                    same_prefix = False
+            if same_prefix:
+                generated_ids = output_ids[:, input_token_count:]
+
+        return self._tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
 
     def score(
         self,
