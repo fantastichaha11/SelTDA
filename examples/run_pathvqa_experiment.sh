@@ -21,6 +21,8 @@
 #   SKIP_TEACHER=1           reuse PATHVQA_TEACHER_CKPT or cache/pathvqa_teacher_weights/checkpoint_04.pth
 #   SKIP_GENERATE=1          reuse datasets/pathvqa/synthetic_data_raw.json
 #   RUN_BASELINE=0           do not train real-only baseline; set ENABLE_XCONS=0 or XCONS_STUDENT_CKPT=...
+#   ENABLE_VQASCORE=1        add PA-LLaVA/HF yes-no VQAScore gate during filtering
+#   PALLAVA_HF_MODEL=...     XTuner-converted/merged PA-LLaVA Hugging Face checkpoint
 #   SKIP_FILTER=1            reuse datasets/pathvqa/synthetic_data.json
 #   SKIP_TRAIN=1             do not train final student; eval existing result if present
 #   SKIP_EVAL=1              skip pathvqa_eval.py
@@ -98,6 +100,15 @@ SCORE_CACHE_DIR="${SCORE_CACHE_DIR:-${PATHVQA_DIR}/score_cache}"
 ENABLE_CONF="$(bool_value "${ENABLE_CONF:-1}")"
 ENABLE_ITM="$(bool_value "${ENABLE_ITM:-1}")"
 ENABLE_XCONS="$(bool_value "${ENABLE_XCONS:-1}")"
+ENABLE_VQASCORE="$(bool_value "${ENABLE_VQASCORE:-0}")"
+VQASCORE_BACKEND="${VQASCORE_BACKEND:-pallava}"
+VQASCORE_MODEL="${VQASCORE_MODEL:-${PALLAVA_HF_MODEL:-}}"
+VQASCORE_PROCESSOR="${VQASCORE_PROCESSOR:-${PALLAVA_HF_PROCESSOR:-}}"
+VQASCORE_MODEL_CLASS="${VQASCORE_MODEL_CLASS:-auto}"
+VQASCORE_SCORE_MODE="${VQASCORE_SCORE_MODE:-yes_no_probability}"
+VQASCORE_TORCH_DTYPE="${VQASCORE_TORCH_DTYPE:-float16}"
+VQASCORE_DEVICE_MAP="${VQASCORE_DEVICE_MAP:-auto}"
+VQASCORE_BATCH_SIZE="${VQASCORE_BATCH_SIZE:-1}"
 RUN_BASELINE="$(bool_value "${RUN_BASELINE:-1}")"
 WANDB_ENABLED="$(bool_value "${WANDB_ENABLED:-1}")"
 WANDB_PROJECT="${WANDB_PROJECT:-seltda}"
@@ -257,25 +268,49 @@ fi
 
 echo "========== Step 5: Filter pseudo-labels =========="
 if [ "${SKIP_FILTER:-0}" != "1" ]; then
+    FILTER_OVERRIDES=(
+        "input='${SYNTH_RAW}'"
+        "image_root='${PATHVQA_IMAGES}'"
+        "output='${SYNTH_FILTERED}'"
+        "report='${FILTER_REPORT}'"
+        "device=${DEVICE}"
+        "torch_home=${TORCH_HOME_OVERRIDE}"
+        "gates.conf.enabled=${ENABLE_CONF}"
+        "gates.conf.keep_top=${FILTER_KEEP_TOP}"
+        "gates.itm.enabled=${ENABLE_ITM}"
+        "gates.itm.keep_top=${FILTER_KEEP_TOP}"
+        "gates.vqascore.enabled=${ENABLE_VQASCORE}"
+        "gates.vqascore.keep_top=${FILTER_KEEP_TOP}"
+        "gates.xcons.enabled=${ENABLE_XCONS}"
+        "gates.xcons.keep_top=${FILTER_KEEP_TOP}"
+        "gates.xcons.student_ckpt='${XCONS_STUDENT_CKPT}'"
+        "gates.xcons.med_config='${MED_CONFIG}'"
+        "score_cache.dir='${SCORE_CACHE_DIR}'"
+    )
+    if [ "${ENABLE_VQASCORE}" = "true" ]; then
+        if [[ "${VQASCORE_BACKEND}" == "t2v" || "${VQASCORE_BACKEND}" == "clip-flant5" || "${VQASCORE_BACKEND}" == "clip_flant5" ]]; then
+            VQASCORE_MODEL="${VQASCORE_MODEL:-clip-flant5-xl}"
+        elif [ -z "${VQASCORE_MODEL}" ]; then
+            die "ENABLE_VQASCORE=1 with backend '${VQASCORE_BACKEND}' requires VQASCORE_MODEL or PALLAVA_HF_MODEL pointing to a merged Hugging Face checkpoint."
+        fi
+        FILTER_OVERRIDES+=(
+            "gates.vqascore.backend='${VQASCORE_BACKEND}'"
+            "gates.vqascore.model='${VQASCORE_MODEL}'"
+            "gates.vqascore.model_class='${VQASCORE_MODEL_CLASS}'"
+            "gates.vqascore.score_mode='${VQASCORE_SCORE_MODE}'"
+            "gates.vqascore.torch_dtype='${VQASCORE_TORCH_DTYPE}'"
+            "gates.vqascore.device_map='${VQASCORE_DEVICE_MAP}'"
+            "gates.vqascore.batch_size=${VQASCORE_BATCH_SIZE}"
+        )
+        if [ -n "${VQASCORE_PROCESSOR}" ]; then
+            FILTER_OVERRIDES+=("gates.vqascore.processor='${VQASCORE_PROCESSOR}'")
+        fi
+    fi
+
     python filter_pseudo.py \
         --output_dir="${FILTER_OUTPUT_DIR}" \
         --config configs/filter_pseudo.yaml \
-        --overrides \
-            "input='${SYNTH_RAW}'" \
-            "image_root='${PATHVQA_IMAGES}'" \
-            "output='${SYNTH_FILTERED}'" \
-            "report='${FILTER_REPORT}'" \
-            "device=${DEVICE}" \
-            "torch_home=${TORCH_HOME_OVERRIDE}" \
-            "gates.conf.enabled=${ENABLE_CONF}" \
-            "gates.conf.keep_top=${FILTER_KEEP_TOP}" \
-            "gates.itm.enabled=${ENABLE_ITM}" \
-            "gates.itm.keep_top=${FILTER_KEEP_TOP}" \
-            "gates.xcons.enabled=${ENABLE_XCONS}" \
-            "gates.xcons.keep_top=${FILTER_KEEP_TOP}" \
-            "gates.xcons.student_ckpt='${XCONS_STUDENT_CKPT}'" \
-            "gates.xcons.med_config='${MED_CONFIG}'" \
-            "score_cache.dir='${SCORE_CACHE_DIR}'"
+        --overrides "${FILTER_OVERRIDES[@]}"
 else
     echo "SKIP_FILTER=1 - reusing ${SYNTH_FILTERED}"
 fi

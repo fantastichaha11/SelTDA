@@ -1,0 +1,70 @@
+input: datasets/pathvqa/synthetic_data_raw.json
+image_root: datasets/pathvqa/images
+output: datasets/pathvqa/synthetic_data_pallava_vqascore.json
+report: datasets/pathvqa/filter_report_pallava_vqascore.json
+
+gates:
+  conf:
+    enabled: false
+    keep_top: 1.0
+  itm:
+    enabled: false
+    keep_top: 1.0
+    clip_model: "ViT-B-32"
+    clip_pretrained: "openai"
+  vqascore:
+    enabled: true
+    keep_top: 0.75
+    backend: pallava
+    # PA-LLaVA's official HF repo publishes XTuner weights. Set this to a
+    # local XTuner-converted/merged HF checkpoint for inference.
+    model: ${oc.env:PALLAVA_HF_MODEL,/path/to/merged-pa-llava-hf}
+    processor: ${oc.env:PALLAVA_HF_PROCESSOR,null}
+    model_class: auto
+    prompt_template: |-
+      <|begin_of_text|><|start_header_id|>user<|end_header_id|>
+
+      {image}
+      Does this pathology image support the following question-answer statement?
+      {text}
+      Answer yes or no.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+    score_mode: yes_no_probability
+    yes_tokens: ["Yes", " yes", "yes", " Yes"]
+    no_tokens: ["No", " no", "no", " No"]
+    trust_remote_code: true
+    torch_dtype: float16
+    device_map: auto
+    batch_size: 1
+  xcons:
+    enabled: false
+    keep_top: 1.0
+    student_ckpt: cache/pathvqa_baseline_weights/checkpoint_09.pth
+    med_config: configs/med_config.json
+    sbert_model: "sentence-transformers/all-MiniLM-L6-v2"
+    image_size: 384
+
+fusion:
+  enabled: false
+  keep_top: 0.75
+  normalize: minmax
+  weights:
+    vqascore: 1.0
+
+score_cache:
+  dir: datasets/pathvqa/score_cache
+  save: true
+  merge_input_scores: true
+  scored_pool: null
+
+stratify:
+  enabled: false
+
+coreset:
+  enabled: false
+
+scoring_only: false
+seed: 42
+device: cuda
+report_max_examples: 50
+log_every: 200
+torch_home: null

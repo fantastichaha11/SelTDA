@@ -282,6 +282,96 @@ def test_orchestrator_reuses_cached_vqascore_without_rescoring(tiny_setup, tmp_p
     assert all("vqascore" in r.get("scores", {}) for r in out)
 
 
+def test_orchestrator_passes_vqascore_backend_options(tiny_setup, monkeypatch):
+    from omegaconf import OmegaConf
+    import filter_pseudo
+
+    calls = {"kwargs": None, "texts": None}
+
+    class TrackingAdapter:
+        def __init__(self, **kwargs):
+            calls["kwargs"] = kwargs
+
+        def score_pairs(self, image_paths, texts):
+            calls["texts"] = list(texts)
+            return [0.9 - i * 0.1 for i in range(len(image_paths))]
+
+    monkeypatch.setattr(filter_pseudo, "VQAScoreAdapter", TrackingAdapter)
+
+    config = OmegaConf.create(
+        {
+            "input": tiny_setup["input"],
+            "image_root": tiny_setup["image_root"],
+            "output": tiny_setup["output"],
+            "report": tiny_setup["report"],
+            "gates": {
+                "conf": {"enabled": False, "keep_top": 1.0},
+                "itm": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "clip_model": "x",
+                    "clip_pretrained": "y",
+                },
+                "vqascore": {
+                    "enabled": True,
+                    "keep_top": 0.6,
+                    "backend": "hf_yesno",
+                    "model": "merged-pallava",
+                    "processor": "merged-pallava-processor",
+                    "model_class": "auto",
+                    "prompt_template": "USER: <image>\n{text}\nASSISTANT:",
+                    "score_mode": "yes_no_probability",
+                    "yes_tokens": ["Yes", " yes"],
+                    "no_tokens": ["No", " no"],
+                    "trust_remote_code": True,
+                    "torch_dtype": "float16",
+                    "device_map": "auto",
+                    "batch_size": 2,
+                },
+                "xcons": {
+                    "enabled": False,
+                    "keep_top": 1.0,
+                    "student_ckpt": "x",
+                    "sbert_model": "y",
+                    "image_size": 384,
+                },
+            },
+            "scoring_only": False,
+            "seed": 0,
+            "device": "cpu",
+            "report_max_examples": 10,
+            "log_every": 100,
+            "torch_home": None,
+            "stratify": {"enabled": False},
+            "coreset": {"enabled": False},
+        }
+    )
+
+    class Args:
+        output_dir = str(Path(tiny_setup["output"]).parent)
+        result_dir = str(Path(tiny_setup["output"]).parent)
+        device = "cpu"
+        seed = 0
+
+    filter_pseudo.main(Args(), config)
+
+    assert calls["kwargs"] == {
+        "backend": "hf_yesno",
+        "model": "merged-pallava",
+        "device": "cpu",
+        "processor": "merged-pallava-processor",
+        "model_class": "auto",
+        "prompt_template": "USER: <image>\n{text}\nASSISTANT:",
+        "score_mode": "yes_no_probability",
+        "yes_tokens": ["Yes", " yes"],
+        "no_tokens": ["No", " no"],
+        "trust_remote_code": True,
+        "torch_dtype": "float16",
+        "device_map": "auto",
+    }
+    assert calls["texts"]
+
+
 def test_orchestrator_stratify_enabled_keeps_subset(tiny_setup):
     from omegaconf import OmegaConf
     import filter_pseudo

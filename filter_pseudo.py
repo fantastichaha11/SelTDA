@@ -10,6 +10,7 @@ from typing import Union
 
 import numpy as np
 import torch
+from omegaconf import OmegaConf
 from PIL import Image
 from tqdm import tqdm
 
@@ -76,6 +77,12 @@ def _coreset_cfg(config) -> dict | None:
     if not hasattr(config, "coreset"):
         return None
     return dict(config.coreset) if config.coreset is not None else None
+
+
+def _plain_cfg_value(value):
+    if OmegaConf.is_config(value):
+        return OmegaConf.to_container(value, resolve=True)
+    return value
 
 
 def _fusion_cfg(config) -> dict | None:
@@ -263,10 +270,29 @@ def _run_gate_vqascore(
             keep_top=config.gates.vqascore.keep_top,
         )
 
-    scorer = VQAScoreAdapter(
-        model=config.gates.vqascore.get("model", "clip-flant5-xl"),
-        device=config.device,
-    )
+    vqascore_cfg = config.gates.vqascore
+    scorer_kwargs = {
+        "backend": vqascore_cfg.get("backend", "t2v"),
+        "model": vqascore_cfg.get("model", "clip-flant5-xl"),
+        "device": config.device,
+    }
+    for key in (
+        "processor",
+        "model_class",
+        "prompt_template",
+        "image_token",
+        "score_mode",
+        "yes_tokens",
+        "no_tokens",
+        "trust_remote_code",
+        "torch_dtype",
+        "device_map",
+        "model_kwargs",
+        "processor_kwargs",
+    ):
+        if key in vqascore_cfg and vqascore_cfg.get(key) is not None:
+            scorer_kwargs[key] = _plain_cfg_value(vqascore_cfg.get(key))
+    scorer = VQAScoreAdapter(**scorer_kwargs)
     batch_size = _gate_batch_size(config, "vqascore", 8)
     for start in tqdm(range(0, len(to_score), batch_size), desc="Gate VQAScore"):
         batch = to_score[start : start + batch_size]

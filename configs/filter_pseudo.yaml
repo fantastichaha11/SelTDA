@@ -16,6 +16,7 @@ gates:
   vqascore:
     enabled: false
     keep_top: 0.75
+    backend: t2v  # t2v | hf_yesno | pallava
     model: clip-flant5-xl
     batch_size: 8
   xcons:
