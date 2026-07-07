@@ -1,0 +1,64 @@
+data:
+  train_annotations: datasets/pathvqa/train.json
+  val_annotations: datasets/pathvqa/val.json
+  image_root: datasets/pathvqa/images
+  negatives_per_positive: 1
+
+prompt:
+  no_reference: true
+  rubric_name: pathology_vqa_correctness
+
+model:
+  backend: prometheus_vision
+  model_path: ${oc.env:PROMETHEUS_VISION_MODEL,prometheus-eval/prometheus-vision-13b-v1.0}
+  model_base: ${oc.env:PROMETHEUS_VISION_MODEL_BASE,null}
+  conv_mode: vicuna_v1
+  device: cuda
+  temperature: 0.0
+  max_new_tokens: 512
+
+eval:
+  split: val
+  output: outputs/prometheus_judge/pathvqa_val_scores.json
+  max_examples: null
+  mock_score: null
+
+train:
+  output_dir: outputs/prometheus_judge/pathvqa_adapted
+  train_pairs_jsonl: outputs/prometheus_judge/pathvqa_train_pairs.jsonl
+  prometheus_sft_json: outputs/prometheus_judge/pathvqa_prometheus_sft.json
+  use_pseudo_qa: false
+  seed: 42
+  backend: dry_run
+  external_command:
+    executable: deepspeed
+    script: llava/train/train_mem.py
+    extra_args:
+      - --deepspeed
+      - ./scripts/zero2.json
+      - --model_name_or_path
+      - ${model.model_path}
+      - --version
+      - plain
+      - --data_path
+      - ${train.prometheus_sft_json}
+      - --bf16
+      - "True"
+      - --output_dir
+      - ${train.output_dir}
+      - --num_train_epochs
+      - "1"
+      - --per_device_train_batch_size
+      - "4"
+      - --gradient_accumulation_steps
+      - "4"
+      - --learning_rate
+      - "1e-5"
+      - --weight_decay
+      - "0.0"
+      - --warmup_ratio
+      - "0.03"
+      - --lr_scheduler_type
+      - cosine
+      - --logging_steps
+      - "1"

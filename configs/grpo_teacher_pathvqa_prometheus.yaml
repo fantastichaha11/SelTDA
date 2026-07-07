@@ -1,0 +1,37 @@
+image_pool:
+  name: pathvqa_train
+  annotations: datasets/pathvqa/train.json
+  image_root: datasets/pathvqa/images
+  use_ground_truth_qa: false
+
+teacher:
+  config: configs/pathvqg.yaml
+  pretrained: ${oc.env:TEACHER_CKPT,cache/teacher_weights/checkpoint_04.pth}
+  output_dir: outputs/grpo_teacher/pathvqa_prometheus
+  device: cuda
+  batch_size: 2
+  candidates_per_image: 4
+  max_steps: 100
+  lr: 1e-6
+  dry_run: true
+
+generation:
+  max_length: 40
+  min_length: 5
+  top_p: 0.9
+
+reward:
+  judge_config: configs/prometheus_judge_pathvqa.yaml
+  selected_judge_model_path: ${oc.env:SELECTED_PROMETHEUS_JUDGE,prometheus-eval/prometheus-vision-13b-v1.0}
+  duplicate_question_penalty: 0.15
+  length_penalty: 0.10
+  generic_answer_penalty: 0.15
+  max_question_words: 30
+  max_answer_words: 12
+
+logging:
+  candidates_jsonl: outputs/grpo_teacher/pathvqa_prometheus/candidates.jsonl
+  metrics_jsonl: outputs/grpo_teacher/pathvqa_prometheus/metrics.jsonl
+  log_every: 10
+
+seed: 42
