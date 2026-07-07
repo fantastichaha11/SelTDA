@@ -60,7 +60,17 @@ def score_distribution(rows: Sequence[Mapping]) -> dict[str, dict[str, dict[str,
     by_answer_type: dict[str, Counter[str]] = defaultdict(Counter)
 
     for row in rows:
-        score = str(int(row["score"]))
+        raw_score = row["score"]
+        if isinstance(raw_score, bool):
+            raise TypeError("score must be an integer-valued number, not bool")
+        if isinstance(raw_score, float):
+            if not raw_score.is_integer():
+                raise ValueError("score must be integer-valued")
+            score = str(int(raw_score))
+        elif isinstance(raw_score, int):
+            score = str(raw_score)
+        else:
+            score = str(int(raw_score))
         by_question_prefix[str(row.get("question_prefix", "unknown"))][score] += 1
         by_answer_type[str(row.get("answer_type", "unknown"))][score] += 1
 

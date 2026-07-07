@@ -119,6 +119,8 @@ def test_score_distribution_canonicalizes_numeric_score_keys():
     [
         {"question_prefix": "what", "answer_type": "phrase"},
         {"question_prefix": "what", "answer_type": "phrase", "score": "bad"},
+        {"question_prefix": "what", "answer_type": "phrase", "score": 4.9},
+        {"question_prefix": "what", "answer_type": "phrase", "score": True},
     ],
 )
 def test_score_distribution_rejects_missing_or_invalid_scores(row):
