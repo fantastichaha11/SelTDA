@@ -23,6 +23,23 @@ def test_pairwise_metrics_count_ties_and_margins():
     assert metrics["auroc"] == pytest.approx(11 / 18)
 
 
+def test_pairwise_metrics_raise_on_length_mismatch():
+    with pytest.raises(ValueError, match="same length"):
+        compute_pairwise_metrics(
+            positive_scores=[1, 2],
+            negative_scores=[1],
+        )
+
+
+def test_pairwise_metrics_return_zeros_on_empty_inputs():
+    assert compute_pairwise_metrics([], []) == {
+        "pairwise_accuracy": 0.0,
+        "tie_rate": 0.0,
+        "mean_margin": 0.0,
+        "auroc": 0.0,
+    }
+
+
 def test_group_normalized_advantages_zero_mean():
     advantages = group_normalized_advantages([0.2, 0.6, 1.0])
 
@@ -68,7 +85,7 @@ def test_batch_diagnostics_reports_rates():
     diagnostics = batch_diagnostics(rows)
 
     assert diagnostics["mean_reward"] == pytest.approx(0.5)
-    assert diagnostics["duplicate_question_rate"] == pytest.approx(0.5)
+    assert diagnostics["duplicate_question_rate"] == pytest.approx(1.0)
     assert diagnostics["yes_no_answer_rate"] == pytest.approx(0.5)
     assert diagnostics["generic_answer_rate"] == pytest.approx(0.5)
 
@@ -84,3 +101,26 @@ def test_score_distribution_groups_by_prefix_and_answer_type():
 
     assert distribution["by_question_prefix"]["is/are"] == {"1": 1, "5": 1}
     assert distribution["by_answer_type"]["phrase"] == {"4": 1}
+
+
+def test_score_distribution_canonicalizes_numeric_score_keys():
+    rows = [
+        {"question_prefix": "what", "answer_type": "phrase", "score": 4.0},
+    ]
+
+    distribution = score_distribution(rows)
+
+    assert distribution["by_question_prefix"]["what"] == {"4": 1}
+    assert distribution["by_answer_type"]["phrase"] == {"4": 1}
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"question_prefix": "what", "answer_type": "phrase"},
+        {"question_prefix": "what", "answer_type": "phrase", "score": "bad"},
+    ],
+)
+def test_score_distribution_rejects_missing_or_invalid_scores(row):
+    with pytest.raises((KeyError, TypeError, ValueError)):
+        score_distribution([row])

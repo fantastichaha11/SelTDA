@@ -60,7 +60,7 @@ def score_distribution(rows: Sequence[Mapping]) -> dict[str, dict[str, dict[str,
     by_answer_type: dict[str, Counter[str]] = defaultdict(Counter)
 
     for row in rows:
-        score = str(row.get("score", "0"))
+        score = str(int(row["score"]))
         by_question_prefix[str(row.get("question_prefix", "unknown"))][score] += 1
         by_answer_type[str(row.get("answer_type", "unknown"))][score] += 1
 
@@ -157,10 +157,8 @@ def batch_diagnostics(rows: Sequence[Mapping]) -> dict[str, float]:
     rewards = [float(row.get("reward", 0.0)) for row in rows]
     normalized_questions = [normalize_answer(str(row.get("question", ""))) for row in rows]
     normalized_answers = [normalize_answer(str(row.get("answer", ""))) for row in rows]
-    duplicate_count = sum(
-        penalty > 0.0
-        for penalty in duplicate_question_penalties(normalized_questions, penalty=1.0)
-    )
+    question_counts = Counter(normalized_questions)
+    duplicate_count = sum(question_counts[question] > 1 for question in normalized_questions)
 
     return {
         "mean_reward": mean(rewards),
