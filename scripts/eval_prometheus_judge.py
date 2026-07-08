@@ -114,9 +114,12 @@ def main():
     parser.add_argument("--output", default=None)
     parser.add_argument("--max-examples", type=int, default=None)
     parser.add_argument("--mock-score", type=int, default=None)
+    parser.add_argument("--overrides", nargs="+", default=[])
     args = parser.parse_args()
 
     config = OmegaConf.load(args.config)
+    if args.overrides:
+        config = OmegaConf.merge(config, OmegaConf.from_dotlist(args.overrides))
     if args.output is not None:
         config.eval.output = args.output
     if args.max_examples is not None:

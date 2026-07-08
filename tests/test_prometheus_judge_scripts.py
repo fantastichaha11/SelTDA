@@ -3,6 +3,7 @@ import json
 from omegaconf import OmegaConf
 
 from judge.prometheus import StaticPrometheusScorer
+import scripts.eval_prometheus_judge as eval_prometheus_judge
 from scripts.eval_prometheus_judge import run_eval
 
 
@@ -34,6 +35,7 @@ def test_grpo_teacher_config_uses_pathvqa_train_images_only():
 
 
 def _write_json(path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -49,9 +51,9 @@ class LengthAwareScorer:
 
 
 def test_run_eval_scores_val_pairs_without_reference_prompt(tmp_path):
-    train_path = tmp_path / "train.json"
-    val_path = tmp_path / "val.json"
-    output_path = tmp_path / "eval.json"
+    train_path = tmp_path / "fixtures" / "train.json"
+    val_path = tmp_path / "fixtures" / "val.json"
+    output_path = tmp_path / "reports" / "eval.json"
 
     _write_json(
         train_path,
@@ -106,3 +108,64 @@ def test_run_eval_scores_val_pairs_without_reference_prompt(tmp_path):
     report = json.loads(output_path.read_text(encoding="utf-8"))
     assert report["metrics"]["num_pairs"] == 2
     assert "positive_score" in report["examples"][0]
+
+
+def test_main_applies_overrides_and_explicit_flags(tmp_path, monkeypatch, capsys):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+data:
+  train_annotations: train.json
+  val_annotations: val.json
+  image_root: images
+  negatives_per_positive: 1
+model:
+  model_path: base-model
+  model_base: null
+  conv_mode: vicuna_v1
+  device: cpu
+  temperature: 0.0
+  max_new_tokens: 32
+eval:
+  output: default.json
+  max_examples: null
+  mock_score: null
+train:
+  seed: 42
+""".strip(),
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    def fake_run_eval(config, scorer=None):
+        del scorer
+        captured["config"] = OmegaConf.to_container(config, resolve=True)
+        return {"num_pairs": 1}
+
+    monkeypatch.setattr(eval_prometheus_judge, "run_eval", fake_run_eval)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "eval_prometheus_judge.py",
+            "--config",
+            str(config_path),
+            "--overrides",
+            "model.device=cuda:1",
+            "eval.output=from_override.json",
+            "--output",
+            str(tmp_path / "explicit.json"),
+            "--max-examples",
+            "3",
+            "--mock-score",
+            "4",
+        ],
+    )
+
+    eval_prometheus_judge.main()
+
+    assert captured["config"]["model"]["device"] == "cuda:1"
+    assert captured["config"]["eval"]["output"] == str(tmp_path / "explicit.json")
+    assert captured["config"]["eval"]["max_examples"] == 3
+    assert captured["config"]["eval"]["mock_score"] == 4
+    assert json.loads(capsys.readouterr().out)["num_pairs"] == 1
