@@ -114,3 +114,34 @@ python -m torch.distributed.run --nproc_per_node=1 train_vqa.py \
 #     "truncate_train_dataset_to=34000" \
 #     "wandb=false"
 ```
+
+## Prometheus-Vision Judge For PathVQA
+
+The Prometheus judge path is separate from pseudo-label filtering. It uses PathVQA train annotations to build positive/negative judge adaptation data, evaluates pretrained or adapted judges on PathVQA val, and can provide a frozen reward signal for GRPO-style VQG teacher training.
+
+Mock eval:
+
+```bash
+python scripts/eval_prometheus_judge.py \
+  --config configs/prometheus_judge_pathvqa.yaml \
+  --max-examples 4 \
+  --mock-score 3
+```
+
+Judge adaptation export:
+
+```bash
+python scripts/train_prometheus_judge.py \
+  --config configs/prometheus_judge_pathvqa.yaml \
+  --backend dry_run
+```
+
+Mock GRPO reward loop:
+
+```bash
+python scripts/train_teacher_grpo.py \
+  --config configs/grpo_teacher_pathvqa_prometheus.yaml \
+  --mock-judge-score 4
+```
+
+For real Prometheus-Vision scoring, install the Prometheus/LLaVA runtime and set `PROMETHEUS_VISION_MODEL` to the pretrained or adapted checkpoint. Keep `image_pool.use_ground_truth_qa: false` for teacher reward optimization so PathVQA train annotations are used only to enumerate images.
