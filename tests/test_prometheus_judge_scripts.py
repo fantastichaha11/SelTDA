@@ -4,7 +4,7 @@ from omegaconf import OmegaConf
 
 from judge.prometheus import StaticPrometheusScorer
 import scripts.eval_prometheus_judge as eval_prometheus_judge
-from scripts.eval_prometheus_judge import run_eval
+from scripts.eval_prometheus_judge import build_scorer, run_eval
 
 
 def test_prometheus_judge_config_loads():
@@ -61,6 +61,7 @@ def test_run_eval_scores_val_pairs_without_reference_prompt(tmp_path):
             {"image": "train-1.jpg", "question": "Is there necrosis?", "answer": "yes"},
             {"image": "train-2.jpg", "question": "What structure is highlighted?", "answer": "nuclei"},
             {"image": "train-3.jpg", "question": "What structure is highlighted?", "answer": "cytoplasm"},
+            {"image": "train-4.jpg", "question": "What structure is highlighted?", "answer": "stroma"},
         ],
     )
     _write_json(
@@ -107,7 +108,133 @@ def test_run_eval_scores_val_pairs_without_reference_prompt(tmp_path):
 
     report = json.loads(output_path.read_text(encoding="utf-8"))
     assert report["metrics"]["num_pairs"] == 2
-    assert "positive_score" in report["examples"][0]
+    assert metrics["score_distribution"] == {
+        "by_question_prefix": {
+            "is/are": {"1": 1, "5": 1},
+            "what": {"1": 1, "5": 1},
+        },
+        "by_answer_type": {
+            "yes/no": {"1": 1, "5": 1},
+            "phrase": {"1": 1, "5": 1},
+        },
+    }
+    assert report["metrics"]["score_distribution"] == metrics["score_distribution"]
+
+    by_question = {example["question"]: example for example in report["examples"]}
+    assert by_question["Is there necrosis?"]["negative_answer"] == "no"
+    assert by_question["What structure is highlighted?"]["negative_answer"] == "cytoplasm"
+    assert by_question["What structure is highlighted?"]["negative_answer"] != "stroma"
+
+    example = report["examples"][0]
+    assert {
+        "image",
+        "question",
+        "positive_answer",
+        "negative_answer",
+        "positive_score",
+        "negative_score",
+        "question_prefix",
+        "positive_answer_type",
+        "negative_answer_type",
+        "positive_feedback",
+        "negative_feedback",
+    }.issubset(example)
+    assert by_question["Is there necrosis?"]["negative_score"] == 1
+    assert by_question["Is there necrosis?"]["negative_answer_type"] == "yes/no"
+    assert by_question["What structure is highlighted?"]["negative_answer_type"] == "phrase"
+
+
+def test_build_scorer_uses_static_scorer_for_mock_score():
+    cfg = OmegaConf.create(
+        {
+            "eval": {"mock_score": 4},
+            "model": {
+                "model_path": "unused",
+                "model_base": None,
+                "conv_mode": "vicuna_v1",
+                "device": "cpu",
+                "temperature": 0.0,
+                "max_new_tokens": 32,
+            },
+        }
+    )
+
+    scorer = build_scorer(cfg)
+
+    assert isinstance(scorer, StaticPrometheusScorer)
+    assert scorer.static_score == 4
+
+
+def test_build_scorer_normalizes_nullish_model_base(monkeypatch):
+    calls = []
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(
+        eval_prometheus_judge,
+        "PrometheusVisionScorer",
+        FakePrometheusVisionScorer,
+    )
+
+    for raw_model_base in (None, "null", "none"):
+        cfg = OmegaConf.create(
+            {
+                "eval": {"mock_score": None},
+                "model": {
+                    "model_path": "vision-model",
+                    "model_base": raw_model_base,
+                    "conv_mode": "vicuna_v1",
+                    "device": "cpu",
+                    "temperature": 0.0,
+                    "max_new_tokens": 32,
+                },
+            }
+        )
+
+        build_scorer(cfg)
+
+    assert [call["model_base"] for call in calls] == [None, None, None]
+
+
+def test_build_scorer_preserves_non_null_model_base(monkeypatch):
+    captured = {}
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        eval_prometheus_judge,
+        "PrometheusVisionScorer",
+        FakePrometheusVisionScorer,
+    )
+
+    cfg = OmegaConf.create(
+        {
+            "eval": {"mock_score": None},
+            "model": {
+                "model_path": "vision-model",
+                "model_base": "adapter-base",
+                "conv_mode": "vicuna_v1",
+                "device": "cuda:0",
+                "temperature": 0.2,
+                "max_new_tokens": 64,
+            },
+        }
+    )
+
+    build_scorer(cfg)
+
+    assert captured == {
+        "model_path": "vision-model",
+        "model_base": "adapter-base",
+        "conv_mode": "vicuna_v1",
+        "device": "cuda:0",
+        "temperature": 0.2,
+        "max_new_tokens": 64,
+    }
 
 
 def test_main_applies_overrides_and_explicit_flags(tmp_path, monkeypatch, capsys):
