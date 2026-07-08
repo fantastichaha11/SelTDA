@@ -3,9 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from omegaconf import OmegaConf
 
@@ -108,6 +113,7 @@ def run_grpo(config, teacher: TeacherPolicy | None = None, judge=None) -> dict[s
     candidates_path = Path(str(config.logging.candidates_jsonl))
     metrics_path = Path(str(config.logging.metrics_jsonl))
     candidates_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
     candidates_path.write_text("", encoding="utf-8")
     metrics_path.write_text("", encoding="utf-8")
 
