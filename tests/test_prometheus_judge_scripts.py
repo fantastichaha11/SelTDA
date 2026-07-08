@@ -4,8 +4,9 @@ from omegaconf import OmegaConf
 
 from judge.prometheus import StaticPrometheusScorer
 import scripts.eval_prometheus_judge as eval_prometheus_judge
+import scripts.train_prometheus_judge as train_prometheus_judge
 from scripts.eval_prometheus_judge import build_scorer, run_eval
-from scripts.train_prometheus_judge import build_external_command, build_training_artifacts
+from scripts.train_prometheus_judge import build_external_command, build_training_artifacts, run_train
 
 
 def test_prometheus_judge_config_loads():
@@ -354,3 +355,147 @@ def test_build_external_command_resolves_data_and_output_paths():
         "--output_dir",
         "out/judge",
     ]
+
+
+def test_run_train_dry_run_skips_subprocess(tmp_path, monkeypatch):
+    train_path = tmp_path / "train.json"
+    _write_json(train_path, [{"image": "img/a.jpg", "question": "Is this benign?", "answer": "yes"}])
+    cfg = OmegaConf.create(
+        {
+            "data": {
+                "train_annotations": str(train_path),
+                "image_root": str(tmp_path / "images"),
+                "negatives_per_positive": 1,
+            },
+            "train": {
+                "seed": 5,
+                "backend": "dry_run",
+                "train_pairs_jsonl": str(tmp_path / "pairs.jsonl"),
+                "prometheus_sft_json": str(tmp_path / "sft.json"),
+            },
+        }
+    )
+
+    def fail_run(*args, **kwargs):
+        raise AssertionError(f"subprocess.run should not be called: {args} {kwargs}")
+
+    monkeypatch.setattr(train_prometheus_judge.subprocess, "run", fail_run)
+
+    result = run_train(cfg)
+
+    assert result["backend"] == "dry_run"
+    assert result["num_pairs"] == 1
+    assert (tmp_path / "pairs.jsonl").exists()
+    assert (tmp_path / "sft.json").exists()
+
+
+def test_run_train_external_llava_runs_resolved_command(monkeypatch):
+    cfg = OmegaConf.create(
+        {
+            "train": {
+                "backend": "external_llava",
+                "output_dir": "out/judge",
+                "prometheus_sft_json": "out/sft.json",
+                "external_command": {
+                    "executable": "deepspeed",
+                    "script": "llava/train/train_mem.py",
+                    "extra_args": ["--data_path", "${train.prometheus_sft_json}", "--output_dir", "${train.output_dir}"],
+                },
+            }
+        }
+    )
+    captured = {}
+
+    def fake_build_training_artifacts(config):
+        captured["build_config"] = config
+        return {"num_pairs": 2, "num_sft_examples": 4}
+
+    def fake_run(command, check):
+        captured["command"] = command
+        captured["check"] = check
+
+    monkeypatch.setattr(train_prometheus_judge, "build_training_artifacts", fake_build_training_artifacts)
+    monkeypatch.setattr(train_prometheus_judge.subprocess, "run", fake_run)
+
+    result = run_train(cfg)
+
+    assert result == {
+        "backend": "external_llava",
+        "command": [
+            "deepspeed",
+            "llava/train/train_mem.py",
+            "--data_path",
+            "out/sft.json",
+            "--output_dir",
+            "out/judge",
+        ],
+        "num_pairs": 2,
+        "num_sft_examples": 4,
+    }
+    assert captured["check"] is True
+    assert captured["command"] == result["command"]
+
+
+def test_run_train_rejects_invalid_backend_before_building_outputs(monkeypatch):
+    cfg = OmegaConf.create({"train": {"backend": "invalid"}})
+    called = {"build": False}
+
+    def fake_build_training_artifacts(config):
+        del config
+        called["build"] = True
+        return {"num_pairs": 1, "num_sft_examples": 2}
+
+    monkeypatch.setattr(train_prometheus_judge, "build_training_artifacts", fake_build_training_artifacts)
+
+    try:
+        run_train(cfg)
+        raise AssertionError("run_train should reject invalid backends")
+    except ValueError as exc:
+        assert str(exc) == "train.backend must be dry_run or external_llava"
+
+    assert called["build"] is False
+
+
+def test_train_main_applies_backend_override(tmp_path, monkeypatch, capsys):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+data:
+  train_annotations: train.json
+  image_root: images
+  negatives_per_positive: 1
+train:
+  seed: 42
+  backend: external_llava
+  train_pairs_jsonl: pairs.jsonl
+  prometheus_sft_json: sft.json
+  output_dir: out
+  external_command:
+    executable: deepspeed
+    script: llava/train/train_mem.py
+    extra_args: []
+""".strip(),
+        encoding="utf-8",
+    )
+    captured = {}
+
+    def fake_run_train(config):
+        captured["config"] = OmegaConf.to_container(config, resolve=True)
+        return {"backend": str(config.train.backend), "num_pairs": 1}
+
+    monkeypatch.setattr(train_prometheus_judge, "run_train", fake_run_train)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "train_prometheus_judge.py",
+            "--config",
+            str(config_path),
+            "--backend",
+            "dry_run",
+        ],
+    )
+
+    train_prometheus_judge.main()
+
+    assert captured["config"]["train"]["backend"] == "dry_run"
+    assert json.loads(capsys.readouterr().out) == {"backend": "dry_run", "num_pairs": 1}

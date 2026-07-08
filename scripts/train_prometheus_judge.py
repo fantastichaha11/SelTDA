@@ -91,15 +91,17 @@ def build_external_command(config) -> list[str]:
 
 
 def run_train(config) -> dict[str, object]:
-    summary = build_training_artifacts(config)
     backend = str(config.train.backend)
+    if backend not in {"dry_run", "external_llava"}:
+        raise ValueError("train.backend must be dry_run or external_llava")
+
+    summary = build_training_artifacts(config)
     if backend == "dry_run":
         return {"backend": backend, **summary}
-    if backend == "external_llava":
-        command = build_external_command(config)
-        subprocess.run(command, check=True)
-        return {"backend": backend, "command": command, **summary}
-    raise ValueError("train.backend must be dry_run or external_llava")
+
+    command = build_external_command(config)
+    subprocess.run(command, check=True)
+    return {"backend": backend, "command": command, **summary}
 
 
 def main() -> None:
