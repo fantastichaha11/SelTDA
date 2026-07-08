@@ -6,14 +6,18 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 SPLIT_MAP = {
     "train": "train",
     "validation": "val",
     "test": "test",
 }
+
+PATHVQA_TEACHER_CHECKPOINT_FILE_ID = "1l_VOx3GL6_MQoatmrCEfjF47VV_ihpCq"
+PATHVQA_SYNTHETIC_DATA_FILE_ID = "14ZQcf5NRhE0_3ZsZf6adzrqrkrVak9W8"
 
 
 def infer_answer_type(answer: str) -> str:
@@ -47,6 +51,68 @@ def split_ready(root: Path) -> bool:
         if not any((images_root / split).glob("*.jpg")):
             return False
     return True
+
+
+def resolve_auxiliary_asset_paths(
+    output_root: Path,
+    *,
+    teacher_checkpoint_output: Path | None = None,
+    synthetic_data_output: Path | None = None,
+) -> dict[str, Path]:
+    return {
+        "teacher_checkpoint": teacher_checkpoint_output
+        or Path("cache/pathvqa_teacher_weights/checkpoint_04.pth"),
+        "synthetic_data": synthetic_data_output or (output_root / "synthetic_data_raw.json"),
+    }
+
+
+def download_google_drive_file(
+    file_id: str,
+    output_path: Path,
+    *,
+    force: bool = False,
+    runner: Callable[..., object] = subprocess.run,
+) -> bool:
+    output_path = Path(output_path)
+    if output_path.exists() and not force:
+        print(f"[skip] {output_path} already exists")
+        return False
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    runner(
+        [
+            "gdown",
+            f"https://drive.google.com/uc?id={file_id}",
+            "-O",
+            str(output_path),
+        ],
+        check=True,
+    )
+    return True
+
+
+def download_auxiliary_assets(
+    output_root: Path,
+    *,
+    teacher_checkpoint_output: Path | None = None,
+    synthetic_data_output: Path | None = None,
+    force: bool = False,
+) -> None:
+    paths = resolve_auxiliary_asset_paths(
+        output_root,
+        teacher_checkpoint_output=teacher_checkpoint_output,
+        synthetic_data_output=synthetic_data_output,
+    )
+    download_google_drive_file(
+        PATHVQA_TEACHER_CHECKPOINT_FILE_ID,
+        paths["teacher_checkpoint"],
+        force=force,
+    )
+    download_google_drive_file(
+        PATHVQA_SYNTHETIC_DATA_FILE_ID,
+        paths["synthetic_data"],
+        force=force,
+    )
 
 
 def build_split_records(
@@ -107,11 +173,40 @@ def main() -> None:
         default=Path("/teamspace/uploads/pathvqa"),
         help="Directory for all_data.json and images/",
     )
+    parser.add_argument(
+        "--include-aux-assets",
+        action="store_true",
+        help="Also download the PathVQA teacher checkpoint and generated synthetic data.",
+    )
+    parser.add_argument(
+        "--teacher-checkpoint-output",
+        type=Path,
+        default=None,
+        help="Override output path for the downloaded PathVQA teacher checkpoint.",
+    )
+    parser.add_argument(
+        "--synthetic-data-output",
+        type=Path,
+        default=None,
+        help="Override output path for the downloaded PathVQA synthetic data JSON.",
+    )
+    parser.add_argument(
+        "--force-aux-download",
+        action="store_true",
+        help="Re-download auxiliary assets even if target files already exist.",
+    )
     args = parser.parse_args()
 
     root = args.output_root.resolve()
     if split_ready(root):
         print(f"[skip] PathVQA already present under {root}")
+        if args.include_aux_assets:
+            download_auxiliary_assets(
+                root,
+                teacher_checkpoint_output=args.teacher_checkpoint_output,
+                synthetic_data_output=args.synthetic_data_output,
+                force=args.force_aux_download,
+            )
         return
 
     try:
@@ -144,6 +239,13 @@ def main() -> None:
         json.dump(dump, f)
 
     print(f"Wrote {root / 'all_data.json'}")
+    if args.include_aux_assets:
+        download_auxiliary_assets(
+            root,
+            teacher_checkpoint_output=args.teacher_checkpoint_output,
+            synthetic_data_output=args.synthetic_data_output,
+            force=args.force_aux_download,
+        )
 
 
 if __name__ == "__main__":
