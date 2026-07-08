@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from omegaconf import OmegaConf
 
 from judge.prometheus import StaticPrometheusScorer
@@ -209,3 +210,26 @@ def test_parse_generated_qa_uses_repo_parser_for_spaced_answer_marker():
     )
     assert question == "what might the person next to the suitcase be doing?"
     assert answer == "waiting,waiting"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_question", "expected_answer"),
+    [
+        (
+            ": what does this animal live in?. answer : trees, forest.",
+            "what does this animal live in?",
+            "trees,forest",
+        ),
+        (
+            " what might the person next to the suitcase be doing?. answer : waiting, waiting",
+            "what might the person next to the suitcase be doing?",
+            "waiting,waiting",
+        ),
+    ],
+)
+def test_parse_generated_qa_handles_repo_style_output_variants(
+    text, expected_question, expected_answer
+):
+    question, answer = _parse_generated_qa(text)
+    assert question == expected_question
+    assert answer == expected_answer
