@@ -1,4 +1,9 @@
+import json
+
 from omegaconf import OmegaConf
+
+from judge.prometheus import StaticPrometheusScorer
+from scripts.eval_prometheus_judge import run_eval
 
 
 def test_prometheus_judge_config_loads():
@@ -26,3 +31,78 @@ def test_grpo_teacher_config_uses_pathvqa_train_images_only():
     assert cfg.reward.judge_config == "configs/prometheus_judge_pathvqa.yaml"
     assert resolved["reward"]["selected_judge_model_path"] == "prometheus-eval/prometheus-vision-13b-v1.0"
     assert resolved["teacher"]["pretrained"] == "cache/teacher_weights/checkpoint_04.pth"
+
+
+def _write_json(path, payload):
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+class LengthAwareScorer:
+    def score(self, image_path: str, question: str, candidate_answer: str):
+        del image_path, question
+        score = 5 if candidate_answer in {"yes", "nuclei"} else 1
+        return StaticPrometheusScorer(score=score, feedback="mock").score(
+            image_path="unused",
+            question="unused",
+            candidate_answer="unused",
+        )
+
+
+def test_run_eval_scores_val_pairs_without_reference_prompt(tmp_path):
+    train_path = tmp_path / "train.json"
+    val_path = tmp_path / "val.json"
+    output_path = tmp_path / "eval.json"
+
+    _write_json(
+        train_path,
+        [
+            {"image": "train-1.jpg", "question": "Is there necrosis?", "answer": "yes"},
+            {"image": "train-2.jpg", "question": "What structure is highlighted?", "answer": "nuclei"},
+            {"image": "train-3.jpg", "question": "What structure is highlighted?", "answer": "cytoplasm"},
+        ],
+    )
+    _write_json(
+        val_path,
+        [
+            {"image": "val-1.jpg", "question": "Is there necrosis?", "answer": "yes"},
+            {"image": "val-2.jpg", "question": "What structure is highlighted?", "answer": "nuclei"},
+        ],
+    )
+
+    cfg = OmegaConf.create(
+        {
+            "data": {
+                "train_annotations": str(train_path),
+                "val_annotations": str(val_path),
+                "image_root": str(tmp_path),
+                "negatives_per_positive": 1,
+            },
+            "model": {
+                "model_path": "unused",
+                "model_base": None,
+                "conv_mode": "vicuna_v1",
+                "device": "cpu",
+                "temperature": 0.0,
+                "max_new_tokens": 32,
+            },
+            "eval": {
+                "output": str(output_path),
+                "max_examples": None,
+                "mock_score": None,
+            },
+            "train": {
+                "seed": 42,
+            },
+        }
+    )
+
+    metrics = run_eval(cfg, scorer=LengthAwareScorer())
+
+    assert metrics["num_pairs"] == 2
+    assert metrics["pairwise_accuracy"] == 1.0
+    assert metrics["auroc"] == 1.0
+    assert "score_distribution" in metrics
+
+    report = json.loads(output_path.read_text(encoding="utf-8"))
+    assert report["metrics"]["num_pairs"] == 2
+    assert "positive_score" in report["examples"][0]
