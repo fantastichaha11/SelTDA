@@ -22,7 +22,7 @@ def test_score_candidate_group_adds_rewards_and_advantages():
             image="img/a.jpg",
             image_path="/tmp/a.jpg",
             question="Q1?",
-            answer="nuclei",
+            answer="mitosis",
             logprob=-1.0,
         ),
         GeneratedQA(
@@ -45,7 +45,7 @@ def test_score_candidate_group_adds_rewards_and_advantages():
         },
     )
     assert len(rows) == 2
-    assert rows[0]["reward"] == 0.65
+    assert rows[0]["reward"] == 0.75
     assert rows[1]["reward"] == 0.55
     assert rows[0]["advantage"] > rows[1]["advantage"]
 
