@@ -9,6 +9,7 @@ from judge.prometheus import StaticPrometheusScorer
 from scripts.train_teacher_grpo import (
     GeneratedQA,
     MockTeacherPolicy,
+    _parse_generated_qa,
     advantage_weighted_policy_loss,
     run_grpo,
     score_candidate_group,
@@ -200,3 +201,11 @@ def test_advantage_weighted_policy_loss_uses_signed_advantages():
     losses = [2.0, 4.0]
     advantages = [1.0, -0.5]
     assert advantage_weighted_policy_loss(losses, advantages) == 0.0
+
+
+def test_parse_generated_qa_uses_repo_parser_for_spaced_answer_marker():
+    question, answer = _parse_generated_qa(
+        " what might the person next to the suitcase be doing?. answer : waiting, waiting"
+    )
+    assert question == "what might the person next to the suitcase be doing?"
+    assert answer == "waiting,waiting"

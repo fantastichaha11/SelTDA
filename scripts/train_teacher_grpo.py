@@ -72,18 +72,33 @@ def advantage_weighted_policy_loss(
 
 
 def _parse_generated_qa(text: str) -> tuple[str, str]:
-    lower = text.lower()
-    marker = "answer:"
-    if marker in lower:
-        index = lower.index(marker)
-        before = text[:index]
-        after = text[index + len(marker) :]
-        question = before.strip()
-        if question.lower().startswith("question:"):
-            question = question[len("question:") :].strip()
-        answer = after.strip().strip(".")
-        return question or text.strip(), answer or "unknown"
-    return text.strip(), "unknown"
+    from generate_questions import (
+        AmbiguousBooleanAnswerError,
+        ParseModelOutputError,
+        VQARecord,
+    )
+
+    try:
+        record = VQARecord.build_from_raw_model_output(
+            text,
+            image_path="/synthetic/grpo/image.jpg",
+            parse_rationale=False,
+        )
+    except (AmbiguousBooleanAnswerError, ParseModelOutputError):
+        lower = text.lower()
+        marker = "answer:"
+        if marker in lower:
+            index = lower.index(marker)
+            before = text[:index]
+            after = text[index + len(marker) :]
+            question = before.strip()
+            if question.lower().startswith("question:"):
+                question = question[len("question:") :].strip()
+            answer = after.strip().strip(".")
+            return question or text.strip(), answer or "unknown"
+        return text.strip(), "unknown"
+    answer = ",".join(record.answer).strip()
+    return record.question, answer or "unknown"
 
 
 class BlipTeacherPolicy:
@@ -172,7 +187,12 @@ class BlipTeacherPolicy:
         self.optimizer.zero_grad()
         policy_loss.backward()
         self.optimizer.step()
-        return {"policy_loss": float(policy_loss.detach().cpu())}
+        return {
+            "policy_loss": advantage_weighted_policy_loss(
+                [float(loss.detach().cpu()) for loss in losses],
+                [float(row["advantage"]) for row in rows],
+            )
+        }
 
 
 def build_judge_from_config(config):
