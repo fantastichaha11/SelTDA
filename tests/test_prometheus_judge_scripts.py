@@ -5,6 +5,7 @@ from omegaconf import OmegaConf
 from judge.prometheus import StaticPrometheusScorer
 import scripts.eval_prometheus_judge as eval_prometheus_judge
 from scripts.eval_prometheus_judge import build_scorer, run_eval
+from scripts.train_prometheus_judge import build_external_command, build_training_artifacts
 
 
 def test_prometheus_judge_config_loads():
@@ -296,3 +297,60 @@ train:
     assert captured["config"]["eval"]["max_examples"] == 3
     assert captured["config"]["eval"]["mock_score"] == 4
     assert json.loads(capsys.readouterr().out)["num_pairs"] == 1
+
+
+def test_build_training_artifacts_use_train_split_only(tmp_path):
+    train_path = tmp_path / "train.json"
+    _write_json(
+        train_path,
+        [
+            {"image": "img/a.jpg", "question": "Is this benign?", "answer": "yes"},
+            {"image": "img/b.jpg", "question": "What is visible?", "answer": "nuclei"},
+        ],
+    )
+    cfg = OmegaConf.create(
+        {
+            "data": {
+                "train_annotations": str(train_path),
+                "image_root": str(tmp_path / "images"),
+                "negatives_per_positive": 1,
+            },
+            "train": {
+                "seed": 5,
+                "train_pairs_jsonl": str(tmp_path / "pairs.jsonl"),
+                "prometheus_sft_json": str(tmp_path / "sft.json"),
+            },
+        }
+    )
+    summary = build_training_artifacts(cfg)
+    assert summary["num_pairs"] == 2
+    assert "val" not in (tmp_path / "pairs.jsonl").read_text(encoding="utf-8")
+    sft = json.loads((tmp_path / "sft.json").read_text(encoding="utf-8"))
+    assert len(sft) == 4
+    assert sft[0]["conversations"][1]["value"].endswith("[RESULT] 5")
+    assert sft[1]["conversations"][1]["value"].endswith("[RESULT] 1")
+
+
+def test_build_external_command_resolves_data_and_output_paths():
+    cfg = OmegaConf.create(
+        {
+            "train": {
+                "output_dir": "out/judge",
+                "prometheus_sft_json": "out/sft.json",
+                "external_command": {
+                    "executable": "deepspeed",
+                    "script": "llava/train/train_mem.py",
+                    "extra_args": ["--data_path", "${train.prometheus_sft_json}", "--output_dir", "${train.output_dir}"],
+                },
+            }
+        }
+    )
+    command = build_external_command(cfg)
+    assert command == [
+        "deepspeed",
+        "llava/train/train_mem.py",
+        "--data_path",
+        "out/sft.json",
+        "--output_dir",
+        "out/judge",
+    ]
