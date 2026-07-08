@@ -58,6 +58,123 @@ class MockTeacherPolicy:
         return {"policy_loss": 0.0}
 
 
+def advantage_weighted_policy_loss(
+    losses: Sequence[float], advantages: Sequence[float]
+) -> float:
+    if len(losses) != len(advantages):
+        raise ValueError("losses and advantages must have the same length")
+    if not losses:
+        return 0.0
+    return sum(
+        float(loss) * float(advantage)
+        for loss, advantage in zip(losses, advantages)
+    ) / len(losses)
+
+
+def _parse_generated_qa(text: str) -> tuple[str, str]:
+    lower = text.lower()
+    marker = "answer:"
+    if marker in lower:
+        index = lower.index(marker)
+        before = text[:index]
+        after = text[index + len(marker) :]
+        question = before.strip()
+        if question.lower().startswith("question:"):
+            question = question[len("question:") :].strip()
+        answer = after.strip().strip(".")
+        return question or text.strip(), answer or "unknown"
+    return text.strip(), "unknown"
+
+
+class BlipTeacherPolicy:
+    def __init__(self, config):
+        import torch
+        from PIL import Image
+        from torchvision import transforms
+        from torchvision.transforms.functional import InterpolationMode
+
+        from models.blip import decoder_from_config
+
+        self.torch = torch
+        self.Image = Image
+        self.device = str(config.teacher.device)
+        teacher_cfg = OmegaConf.load(str(config.teacher.config))
+        if OmegaConf.select(config, "teacher.pretrained", default=None):
+            teacher_cfg.pretrained = str(config.teacher.pretrained)
+        self.model = decoder_from_config(teacher_cfg).to(self.device)
+        self.model.train()
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=float(config.teacher.lr)
+        )
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize(
+                    (int(teacher_cfg.image_size), int(teacher_cfg.image_size)),
+                    interpolation=InterpolationMode.BICUBIC,
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.48145466, 0.4578275, 0.40821073),
+                    (0.26862954, 0.26130258, 0.27577711),
+                ),
+            ]
+        )
+        self.generation = config.generation
+
+    def _load_image_tensor(self, image_path: str):
+        image = self.Image.open(image_path).convert("RGB")
+        return self.transform(image).unsqueeze(0).to(self.device)
+
+    def generate(self, item: ImagePoolItem, k: int) -> list[GeneratedQA]:
+        image = self._load_image_tensor(item.image_path)
+        repeated = image.repeat(k, 1, 1, 1)
+        with self.torch.no_grad():
+            outputs, logprobs = self.model.generate(
+                repeated,
+                sample=True,
+                top_p=float(self.generation.top_p),
+                max_length=int(self.generation.max_length),
+                min_length=int(self.generation.min_length),
+                return_logprob=True,
+            )
+        generated: list[GeneratedQA] = []
+        for output, logprob in zip(outputs, logprobs):
+            question, answer = _parse_generated_qa(output)
+            generated.append(
+                GeneratedQA(
+                    image=item.image,
+                    image_path=item.image_path,
+                    question=question,
+                    answer=answer,
+                    logprob=float(logprob),
+                )
+            )
+        return generated
+
+    def update(self, rows: Sequence[dict]) -> dict[str, float]:
+        if not rows:
+            return {"policy_loss": 0.0}
+        captions = [
+            f"Question: {row['question']} Answer: {row['answer']}" for row in rows
+        ]
+        images = self.torch.cat(
+            [self._load_image_tensor(str(row["image_path"])) for row in rows], dim=0
+        )
+        advantages = self.torch.tensor(
+            [float(row["advantage"]) for row in rows], device=self.device
+        )
+        losses = []
+        for index, caption in enumerate(captions):
+            loss = self.model(images[index : index + 1], [caption])
+            losses.append(loss)
+        stacked = self.torch.stack(losses)
+        policy_loss = (stacked * advantages).mean()
+        self.optimizer.zero_grad()
+        policy_loss.backward()
+        self.optimizer.step()
+        return {"policy_loss": float(policy_loss.detach().cpu())}
+
+
 def build_judge_from_config(config):
     judge_model_path = OmegaConf.select(
         config, "reward.selected_judge_model_path", default=None
@@ -107,7 +224,12 @@ def _append_jsonl(path: str | Path, rows: Sequence[dict]) -> None:
 def run_grpo(config, teacher: TeacherPolicy | None = None, judge=None) -> dict[str, int]:
     random.seed(int(OmegaConf.select(config, "seed", default=42)))
     pool = load_image_pool(config.image_pool)
-    teacher = teacher or MockTeacherPolicy()
+    if teacher is None:
+        teacher = (
+            MockTeacherPolicy()
+            if bool(config.teacher.dry_run)
+            else BlipTeacherPolicy(config)
+        )
     judge = judge or build_judge_from_config(config)
 
     candidates_path = Path(str(config.logging.candidates_jsonl))

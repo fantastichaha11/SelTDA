@@ -9,6 +9,7 @@ from judge.prometheus import StaticPrometheusScorer
 from scripts.train_teacher_grpo import (
     GeneratedQA,
     MockTeacherPolicy,
+    advantage_weighted_policy_loss,
     run_grpo,
     score_candidate_group,
 )
@@ -193,3 +194,9 @@ def test_train_teacher_grpo_cli_runs_from_repo_root_and_prints_json(tmp_path):
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload == {"steps": 1}
+
+
+def test_advantage_weighted_policy_loss_uses_signed_advantages():
+    losses = [2.0, 4.0]
+    advantages = [1.0, -0.5]
+    assert advantage_weighted_policy_loss(losses, advantages) == 0.0
