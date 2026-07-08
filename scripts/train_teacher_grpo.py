@@ -143,15 +143,20 @@ class BlipTeacherPolicy:
     def generate(self, item: ImagePoolItem, k: int) -> list[GeneratedQA]:
         image = self._load_image_tensor(item.image_path)
         repeated = image.repeat(k, 1, 1, 1)
-        with self.torch.no_grad():
-            outputs, logprobs = self.model.generate(
-                repeated,
-                sample=True,
-                top_p=float(self.generation.top_p),
-                max_length=int(self.generation.max_length),
-                min_length=int(self.generation.min_length),
-                return_logprob=True,
-            )
+        was_training = bool(getattr(self.model, "training", True))
+        self.model.eval()
+        try:
+            with self.torch.no_grad():
+                outputs, logprobs = self.model.generate(
+                    repeated,
+                    sample=True,
+                    top_p=float(self.generation.top_p),
+                    max_length=int(self.generation.max_length),
+                    min_length=int(self.generation.min_length),
+                    return_logprob=True,
+                )
+        finally:
+            self.model.train(was_training)
         generated: list[GeneratedQA] = []
         for output, logprob in zip(outputs, logprobs):
             question, answer = _parse_generated_qa(output)

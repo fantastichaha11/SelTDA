@@ -1,14 +1,17 @@
 import json
 import subprocess
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 from omegaconf import OmegaConf
 
+import scripts.train_teacher_grpo as teacher_grpo
 from judge.prometheus import StaticPrometheusScorer
 from scripts.train_teacher_grpo import (
     GeneratedQA,
+    BlipTeacherPolicy,
     MockTeacherPolicy,
     _parse_generated_qa,
     advantage_weighted_policy_loss,
@@ -30,6 +33,53 @@ def _read_jsonl(path):
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def _make_grpo_config(tmp_path, *, dry_run):
+    train_path = tmp_path / "train.json"
+    _write_json(
+        train_path,
+        [
+            {"image": "img/a.jpg", "question": "Gold question?", "answer": "gold"},
+        ],
+    )
+    return OmegaConf.create(
+        {
+            "image_pool": {
+                "name": "pathvqa_train",
+                "annotations": str(train_path),
+                "image_root": str(tmp_path / "images"),
+                "use_ground_truth_qa": False,
+            },
+            "teacher": {
+                "output_dir": str(tmp_path / "out"),
+                "batch_size": 1,
+                "candidates_per_image": 1,
+                "max_steps": 1,
+                "dry_run": dry_run,
+                "device": "cpu",
+                "lr": 1e-6,
+                "config": str(tmp_path / "teacher.yaml"),
+            },
+            "generation": {
+                "top_p": 0.9,
+                "max_length": 10,
+                "min_length": 1,
+            },
+            "reward": {
+                "duplicate_question_penalty": 0.0,
+                "length_penalty": 0.0,
+                "generic_answer_penalty": 0.0,
+                "max_question_words": 10,
+                "max_answer_words": 4,
+            },
+            "logging": {
+                "candidates_jsonl": str(tmp_path / "candidates" / "candidates.jsonl"),
+                "metrics_jsonl": str(tmp_path / "metrics" / "metrics.jsonl"),
+            },
+            "seed": 42,
+        }
+    )
 
 
 def test_score_candidate_group_adds_rewards_and_advantages():
@@ -233,3 +283,114 @@ def test_parse_generated_qa_handles_repo_style_output_variants(
     question, answer = _parse_generated_qa(text)
     assert question == expected_question
     assert answer == expected_answer
+
+
+def test_run_grpo_uses_blip_teacher_and_default_judge_when_not_dry_run(
+    tmp_path, monkeypatch
+):
+    cfg = _make_grpo_config(tmp_path, dry_run=False)
+    calls = {}
+
+    class FakeBlipTeacherPolicy:
+        def __init__(self, config):
+            calls["teacher_config"] = config
+
+        def generate(self, item, k):
+            calls["generated_item"] = item
+            calls["generated_k"] = k
+            return [
+                GeneratedQA(
+                    image=item.image,
+                    image_path=item.image_path,
+                    question="Generated question?",
+                    answer="mitosis",
+                    logprob=-0.25,
+                )
+            ]
+
+        def update(self, rows):
+            calls["updated_rows"] = list(rows)
+            return {"policy_loss": 0.5}
+
+    class FakeJudge:
+        def score(self, image_path, question, answer):
+            calls["judge_inputs"] = (image_path, question, answer)
+            return SimpleNamespace(score=5, reward=1.0, feedback="mock")
+
+    def fake_build_judge_from_config(config):
+        calls["judge_config"] = config
+        return FakeJudge()
+
+    monkeypatch.setattr(teacher_grpo, "BlipTeacherPolicy", FakeBlipTeacherPolicy)
+    monkeypatch.setattr(
+        teacher_grpo, "build_judge_from_config", fake_build_judge_from_config
+    )
+
+    result = run_grpo(cfg, teacher=None, judge=None)
+
+    assert result == {"steps": 1}
+    assert calls["teacher_config"] is cfg
+    assert calls["judge_config"] is cfg
+    assert calls["generated_k"] == 1
+    assert calls["judge_inputs"][1:] == ("Generated question?", "mitosis")
+    assert calls["updated_rows"][0]["judge_score"] == 5
+    assert calls["updated_rows"][0]["feedback"] == "mock"
+
+
+def test_blip_teacher_generate_uses_eval_mode_for_sampling():
+    class FakeNoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeTorch:
+        def no_grad(self):
+            return FakeNoGrad()
+
+    class FakeTensor:
+        def repeat(self, *args):
+            return self
+
+    class FakeModel:
+        def __init__(self):
+            self.training = True
+            self.events = []
+
+        def train(self, mode=True):
+            self.training = mode
+            self.events.append(("train", mode))
+            return self
+
+        def eval(self):
+            self.training = False
+            self.events.append(("eval",))
+            return self
+
+        def generate(self, image, **kwargs):
+            self.events.append(("generate", self.training, kwargs))
+            return [" what might the person next to the suitcase be doing?. answer : waiting"], [-0.5]
+
+    policy = object.__new__(BlipTeacherPolicy)
+    policy.torch = FakeTorch()
+    policy.model = FakeModel()
+    policy.generation = SimpleNamespace(top_p=0.9, max_length=10, min_length=1)
+    policy._load_image_tensor = lambda image_path: FakeTensor()
+
+    item = SimpleNamespace(image="img/a.jpg", image_path="/tmp/a.jpg")
+
+    generated = policy.generate(item, k=1)
+
+    assert [event[0] for event in policy.model.events] == ["eval", "generate", "train"]
+    assert policy.model.events[1][1] is False
+    assert policy.model.training is True
+    assert generated == [
+        GeneratedQA(
+            image="img/a.jpg",
+            image_path="/tmp/a.jpg",
+            question="what might the person next to the suitcase be doing?",
+            answer="waiting",
+            logprob=-0.5,
+        )
+    ]
