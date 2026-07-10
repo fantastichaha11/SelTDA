@@ -103,24 +103,36 @@ def generic_answer_penalty(answer: str, penalty: float) -> float:
 
 
 def duplicate_question_penalties(questions: Sequence[str], penalty: float) -> list[float]:
-    seen: set[str] = set()
+    seen_counts: Counter[str] = Counter()
     penalties: list[float] = []
 
     for question in questions:
         normalized = normalize_answer(question)
-        if normalized in seen:
-            penalties.append(float(penalty))
-            continue
-        penalties.append(0.0)
-        seen.add(normalized)
+        penalties.append(float(penalty) * seen_counts[normalized])
+        seen_counts[normalized] += 1
 
     return penalties
+
+
+def yes_no_answer_penalties(answers: Sequence[str], penalty: float) -> list[float]:
+    normalized_answers = [normalize_answer(answer) for answer in answers]
+    if not normalized_answers:
+        return []
+
+    yes_no_rate = sum(answer in {"yes", "no"} for answer in normalized_answers) / len(
+        normalized_answers
+    )
+    return [
+        float(penalty) * yes_no_rate if answer in {"yes", "no"} else 0.0
+        for answer in normalized_answers
+    ]
 
 
 def apply_reward_penalties(
     rows: Sequence[Mapping],
     *,
     duplicate_question_penalty: float = 0.0,
+    yes_no_answer_penalty: float = 0.0,
     max_question_words: int = 30,
     max_answer_words: int = 12,
     length_penalty_value: float = 0.0,
@@ -130,11 +142,17 @@ def apply_reward_penalties(
         [str(row.get("question", "")) for row in rows],
         duplicate_question_penalty,
     )
+    yes_no_penalties = yes_no_answer_penalties(
+        [str(row.get("answer", "")) for row in rows],
+        yes_no_answer_penalty,
+    )
     adjusted_rewards: list[float] = []
 
-    for row, duplicate_penalty in zip(rows, duplicate_penalties):
+    for row, duplicate_penalty, yes_no_penalty in zip(
+        rows, duplicate_penalties, yes_no_penalties
+    ):
         base_reward = float(row.get("reward", 0.0))
-        total_penalty = duplicate_penalty
+        total_penalty = duplicate_penalty + yes_no_penalty
         total_penalty += length_penalty(
             str(row.get("question", "")),
             max_words=max_question_words,

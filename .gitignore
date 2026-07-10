@@ -30,3 +30,5 @@ env/
 datasets
 cache
 hf_cache
+external/
+outputs/

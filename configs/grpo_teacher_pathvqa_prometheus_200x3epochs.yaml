@@ -7,11 +7,13 @@ image_pool:
 teacher:
   config: configs/pathvqg.yaml
   pretrained: ${oc.env:TEACHER_CKPT,cache/pathvqa_teacher_weights/checkpoint_04.pth}
-  output_dir: outputs/grpo_teacher/pathvqa_prometheus_base7b
+  output_dir: outputs/grpo_teacher/pathvqa_prometheus_base7b_200x3epochs_strongpenalty_restart_20260710
   device: cuda
   batch_size: 2
   candidates_per_image: 8
   max_steps: 200
+  epochs: 3
+  save_every: 50
   lr: 1e-6
   dry_run: false
 
@@ -31,8 +33,8 @@ reward:
   max_answer_words: 12
 
 logging:
-  candidates_jsonl: outputs/grpo_teacher/pathvqa_prometheus_base7b/candidates.jsonl
-  metrics_jsonl: outputs/grpo_teacher/pathvqa_prometheus_base7b/metrics.jsonl
+  candidates_jsonl: outputs/grpo_teacher/pathvqa_prometheus_base7b_200x3epochs_strongpenalty_restart_20260710/candidates.jsonl
+  metrics_jsonl: outputs/grpo_teacher/pathvqa_prometheus_base7b_200x3epochs_strongpenalty_restart_20260710/metrics.jsonl
   log_every: 10
 
 seed: 42

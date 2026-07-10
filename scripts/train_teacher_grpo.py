@@ -121,6 +121,19 @@ class BlipTeacherPolicy:
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=float(config.teacher.lr)
         )
+        self.resume_step = 0
+        resume_from = OmegaConf.select(config, "teacher.resume_from", default=None)
+        if resume_from:
+            checkpoint = torch.load(str(resume_from), map_location=self.device)
+            self.model.load_state_dict(checkpoint["model"])
+            if "optimizer" in checkpoint:
+                self.optimizer.load_state_dict(checkpoint["optimizer"])
+            self.resume_step = int(checkpoint.get("step", 0))
+            print(
+                f"[grpo] resumed_checkpoint={resume_from} step={self.resume_step}",
+                file=sys.stderr,
+                flush=True,
+            )
         self.transform = transforms.Compose(
             [
                 transforms.Resize(
@@ -199,6 +212,19 @@ class BlipTeacherPolicy:
             )
         }
 
+    def save_checkpoint(self, path: str | Path, config, steps: int) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.torch.save(
+            {
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "config": config,
+                "step": steps,
+            },
+            path,
+        )
+
 
 def build_judge_from_config(config):
     judge_model_path = OmegaConf.select(
@@ -206,9 +232,33 @@ def build_judge_from_config(config):
     )
     if judge_model_path is None:
         return StaticPrometheusScorer(score=3, feedback="mock")
+    judge_config_path = OmegaConf.select(config, "reward.judge_config", default=None)
+    judge_config = OmegaConf.load(str(judge_config_path)) if judge_config_path else None
+    model_base = (
+        OmegaConf.select(judge_config, "model.model_path", default=None)
+        if judge_config is not None
+        else None
+    )
+    if model_base is not None and str(model_base).lower() in {"none", "null"}:
+        model_base = None
     return PrometheusVisionScorer(
         model_path=str(judge_model_path),
+        model_base=(
+            None
+            if str(judge_model_path) == str(model_base)
+            else str(model_base) if model_base is not None else None
+        ),
+        conv_mode=str(
+            OmegaConf.select(judge_config, "model.conv_mode", default="vicuna_v1")
+            if judge_config is not None
+            else "vicuna_v1"
+        ),
         device=str(OmegaConf.select(config, "teacher.device", default="cuda")),
+        max_new_tokens=int(
+            OmegaConf.select(judge_config, "model.max_new_tokens", default=512)
+            if judge_config is not None
+            else 512
+        ),
     )
 
 
@@ -225,6 +275,7 @@ def score_candidate_group(candidates: Sequence[GeneratedQA], judge, reward_cfg) 
     adjusted_rewards = apply_reward_penalties(
         rows,
         duplicate_question_penalty=float(reward_cfg.get("duplicate_question_penalty", 0.0)),
+        yes_no_answer_penalty=float(reward_cfg.get("yes_no_answer_penalty", 0.0)),
         max_question_words=int(reward_cfg.get("max_question_words", 30)),
         max_answer_words=int(reward_cfg.get("max_answer_words", 12)),
         length_penalty_value=float(reward_cfg.get("length_penalty", 0.0)),
@@ -246,6 +297,31 @@ def _append_jsonl(path: str | Path, rows: Sequence[dict]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _print_grpo_progress(
+    *,
+    step: int,
+    total_steps: int,
+    epoch: int,
+    epochs: int,
+    candidate_count: int,
+    diagnostics: dict,
+) -> None:
+    print(
+        "[grpo] "
+        f"step={step + 1}/{total_steps} "
+        f"epoch={epoch + 1}/{epochs} "
+        f"candidates={candidate_count} "
+        f"mean_reward={diagnostics.get('mean_reward', 0.0):.4f} "
+        f"reward_std={diagnostics.get('reward_std', 0.0):.4f} "
+        f"policy_loss={diagnostics.get('policy_loss', 0.0):.6f} "
+        f"dup_rate={diagnostics.get('duplicate_question_rate', 0.0):.2f} "
+        f"yes_no_rate={diagnostics.get('yes_no_answer_rate', 0.0):.2f} "
+        f"generic_rate={diagnostics.get('generic_answer_rate', 0.0):.2f}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def run_grpo(config, teacher: TeacherPolicy | None = None, judge=None) -> dict[str, int]:
     random.seed(int(OmegaConf.select(config, "seed", default=42)))
     pool = load_image_pool(config.image_pool)
@@ -265,22 +341,72 @@ def run_grpo(config, teacher: TeacherPolicy | None = None, judge=None) -> dict[s
     metrics_path.write_text("", encoding="utf-8")
 
     max_steps = int(config.teacher.max_steps)
+    epochs = int(OmegaConf.select(config, "teacher.epochs", default=1))
+    if epochs < 1:
+        raise ValueError("teacher.epochs must be >= 1")
     candidate_count = int(config.teacher.candidates_per_image)
-    steps = 0
+    epoch_items = pool[:max_steps]
+    total_steps = len(epoch_items) * epochs
+    steps = int(getattr(teacher, "resume_step", 0))
+    save_every = int(OmegaConf.select(config, "teacher.save_every", default=0))
+    print(
+        "[grpo] "
+        f"start images_per_epoch={len(epoch_items)} "
+        f"epochs={epochs} "
+        f"total_steps={total_steps} "
+        f"candidates_per_image={candidate_count} "
+        f"metrics={metrics_path} "
+        f"candidates={candidates_path}",
+        file=sys.stderr,
+        flush=True,
+    )
 
-    for item in pool[:max_steps]:
-        rows = score_candidate_group(
-            teacher.generate(item, k=candidate_count),
-            judge=judge,
-            reward_cfg=dict(config.reward),
-        )
-        update_metrics = teacher.update(rows)
-        diagnostics = batch_diagnostics(rows)
-        diagnostics.update(update_metrics)
-        diagnostics["step"] = steps
-        _append_jsonl(candidates_path, rows)
-        _append_jsonl(metrics_path, [diagnostics])
-        steps += 1
+    for epoch in range(epochs):
+        for image_index, item in enumerate(epoch_items):
+            global_index = epoch * len(epoch_items) + image_index
+            if global_index < steps:
+                continue
+            rows = score_candidate_group(
+                teacher.generate(item, k=candidate_count),
+                judge=judge,
+                reward_cfg=dict(config.reward),
+            )
+            update_metrics = teacher.update(rows)
+            diagnostics = batch_diagnostics(rows)
+            diagnostics.update(update_metrics)
+            diagnostics["step"] = steps
+            diagnostics["epoch"] = epoch
+            diagnostics["image_index"] = image_index
+            _append_jsonl(candidates_path, rows)
+            _append_jsonl(metrics_path, [diagnostics])
+            _print_grpo_progress(
+                step=steps,
+                total_steps=total_steps,
+                epoch=epoch,
+                epochs=epochs,
+                candidate_count=len(rows),
+                diagnostics=diagnostics,
+            )
+            steps += 1
+            if (
+                save_every > 0
+                and steps % save_every == 0
+                and hasattr(teacher, "save_checkpoint")
+            ):
+                checkpoint_path = (
+                    Path(str(config.teacher.output_dir)) / f"checkpoint_step_{steps:06d}.pth"
+                )
+                teacher.save_checkpoint(checkpoint_path, config, steps)
+                print(
+                    f"[grpo] saved_checkpoint={checkpoint_path}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+    final_checkpoint = Path(str(config.teacher.output_dir)) / "checkpoint_final.pth"
+    if hasattr(teacher, "save_checkpoint"):
+        teacher.save_checkpoint(final_checkpoint, config, steps)
+        print(f"[grpo] saved_checkpoint={final_checkpoint}", file=sys.stderr, flush=True)
 
     return {"steps": steps}
 

@@ -4,10 +4,12 @@ from judge.reward import (
     apply_reward_penalties,
     batch_diagnostics,
     compute_pairwise_metrics,
+    duplicate_question_penalties,
     generic_answer_penalty,
     group_normalized_advantages,
     length_penalty,
     score_distribution,
+    yes_no_answer_penalties,
 )
 
 
@@ -58,6 +60,18 @@ def test_penalties_are_explicit_and_bounded():
     assert generic_answer_penalty("lymphocytes", penalty=0.15) == 0.0
 
 
+def test_duplicate_penalty_increases_with_repeated_occurrences():
+    penalties = duplicate_question_penalties(["Q?", "Q?", "Other?", "Q?"], penalty=0.2)
+
+    assert penalties == pytest.approx([0.0, 0.2, 0.0, 0.4])
+
+
+def test_yes_no_penalty_scales_with_group_yes_no_rate():
+    penalties = yes_no_answer_penalties(["yes", "no", "cells", "tumor"], penalty=0.4)
+
+    assert penalties == pytest.approx([0.2, 0.2, 0.0, 0.0])
+
+
 def test_apply_reward_penalties_subtracts_and_clamps():
     rows = [
         {"question": "Is it benign?", "answer": "yes", "reward": 0.8},
@@ -67,6 +81,7 @@ def test_apply_reward_penalties_subtracts_and_clamps():
     rewards = apply_reward_penalties(
         rows,
         duplicate_question_penalty=0.3,
+        yes_no_answer_penalty=0.0,
         max_question_words=10,
         max_answer_words=3,
         length_penalty_value=0.1,

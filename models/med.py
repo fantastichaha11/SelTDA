@@ -36,10 +36,12 @@ from transformers.modeling_outputs import (
     SequenceClassifierOutput,
     TokenClassifierOutput,
 )
+from transformers.generation import GenerationMixin
 from transformers.modeling_utils import (
     PreTrainedModel,
+)
+from transformers.pytorch_utils import (
     apply_chunking_to_forward,
-    find_pruneable_heads_and_indices,
     prune_linear_layer,
 )
 from transformers.utils import logging
@@ -47,6 +49,19 @@ from transformers.models.bert.configuration_bert import BertConfig
 
 
 logger = logging.get_logger(__name__)
+
+
+def find_pruneable_heads_and_indices(
+    heads, n_heads, head_size, already_pruned_heads
+):
+    heads = set(heads) - already_pruned_heads
+    mask = torch.ones(n_heads, head_size)
+    for head in heads:
+        head = head - sum(1 if h < head else 0 for h in already_pruned_heads)
+        mask[head] = 0
+    mask = mask.view(-1).contiguous().eq(1)
+    index = torch.arange(len(mask))[mask].long()
+    return heads, index
 
 
 class BertEmbeddings(nn.Module):
@@ -625,6 +640,21 @@ class BertPreTrainedModel(PreTrainedModel):
     config_class = BertConfig
     base_model_prefix = "bert"
     _keys_to_ignore_on_load_missing = [r"position_ids"]
+    all_tied_weights_keys = {}
+
+    def get_head_mask(self, head_mask, num_hidden_layers, is_attention_chunked=False):
+        if head_mask is None:
+            return [None] * num_hidden_layers
+        if head_mask.dim() == 1:
+            head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+            head_mask = head_mask.expand(num_hidden_layers, -1, -1, -1, -1)
+        elif head_mask.dim() == 2:
+            head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
+        dtype = next(self.parameters()).dtype
+        head_mask = head_mask.to(dtype=dtype)
+        if is_attention_chunked:
+            head_mask = head_mask.unsqueeze(-1)
+        return head_mask
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -924,7 +954,7 @@ class BertModel(BertPreTrainedModel):
         )
 
 
-class BertLMHeadModel(BertPreTrainedModel):
+class BertLMHeadModel(BertPreTrainedModel, GenerationMixin):
 
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]

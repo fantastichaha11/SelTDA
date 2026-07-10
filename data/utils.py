@@ -71,7 +71,8 @@ def save_result(result, result_dir, filename, remove_duplicate=""):
 
     json.dump(result, open(result_file, "w"))
 
-    dist.barrier()
+    if utils.is_dist_avail_and_initialized():
+        dist.barrier()
 
     if utils.is_main_process():
         # combine results from all processes

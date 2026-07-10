@@ -15,6 +15,7 @@ from scripts.train_teacher_grpo import (
     MockTeacherPolicy,
     _parse_generated_qa,
     advantage_weighted_policy_loss,
+    build_judge_from_config,
     run_grpo,
     score_candidate_group,
 )
@@ -335,6 +336,49 @@ def test_run_grpo_uses_blip_teacher_and_default_judge_when_not_dry_run(
     assert calls["judge_inputs"][1:] == ("Generated question?", "mitosis")
     assert calls["updated_rows"][0]["judge_score"] == 5
     assert calls["updated_rows"][0]["feedback"] == "mock"
+
+
+def test_build_judge_from_config_passes_lora_base_from_judge_config(tmp_path, monkeypatch):
+    judge_cfg_path = tmp_path / "judge.yaml"
+    judge_cfg_path.write_text(
+        "\n".join(
+            [
+                "model:",
+                "  model_path: cache/prometheus-vision-7b-v1.0",
+                "  conv_mode: vicuna_v1",
+                "  max_new_tokens: 128",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cfg = OmegaConf.create(
+        {
+            "teacher": {"device": "cuda"},
+            "reward": {
+                "judge_config": str(judge_cfg_path),
+                "selected_judge_model_path": "outputs/prometheus_judge/pathvqa_llava_lora_adapted",
+            },
+        }
+    )
+    captured = {}
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        teacher_grpo, "PrometheusVisionScorer", FakePrometheusVisionScorer
+    )
+
+    build_judge_from_config(cfg)
+
+    assert captured == {
+        "model_path": "outputs/prometheus_judge/pathvqa_llava_lora_adapted",
+        "model_base": "cache/prometheus-vision-7b-v1.0",
+        "conv_mode": "vicuna_v1",
+        "device": "cuda",
+        "max_new_tokens": 128,
+    }
 
 
 def test_blip_teacher_generate_uses_eval_mode_for_sampling():

@@ -3,7 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from omegaconf import OmegaConf
 
@@ -90,6 +95,22 @@ def build_external_command(config) -> list[str]:
     ]
 
 
+def _command_arg(command: list[str], name: str) -> str | None:
+    try:
+        return command[command.index(name) + 1]
+    except (ValueError, IndexError):
+        return None
+
+
+def validate_external_llava_command(command: list[str]) -> None:
+    version = _command_arg(command, "--version")
+    if version in {"plain", "v0_plain"}:
+        raise ValueError(
+            "Prometheus judge SFT data needs a chat template such as vicuna_v1; "
+            "LLaVA plain mode drops the rubric and question prompt."
+        )
+
+
 def run_train(config) -> dict[str, object]:
     backend = str(config.train.backend)
     if backend not in {"dry_run", "external_llava"}:
@@ -100,6 +121,7 @@ def run_train(config) -> dict[str, object]:
         return {"backend": backend, **summary}
 
     command = build_external_command(config)
+    validate_external_llava_command(command)
     subprocess.run(command, check=True)
     return {"backend": backend, "command": command, **summary}
 

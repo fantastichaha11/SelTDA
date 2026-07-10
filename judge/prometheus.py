@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol
 
 
@@ -117,6 +119,18 @@ class StaticPrometheusScorer:
         )
 
 
+def _llava_model_name_for_path(model_path: str, raw_model_name: str) -> str:
+    if "llava" in raw_model_name.lower():
+        return raw_model_name
+    config_path = Path(model_path) / "config.json"
+    if not config_path.exists():
+        return raw_model_name
+    model_type = json.loads(config_path.read_text(encoding="utf-8")).get("model_type")
+    if model_type == "llava":
+        return f"llava-{raw_model_name}"
+    return raw_model_name
+
+
 class PrometheusVisionScorer:
     def __init__(
         self,
@@ -163,6 +177,7 @@ class PrometheusVisionScorer:
         from llava.model.builder import load_pretrained_model
 
         model_name = get_model_name_from_path(self.model_path)
+        model_name = _llava_model_name_for_path(self.model_path, model_name)
         tokenizer, model, image_processor, context_len = load_pretrained_model(
             self.model_path,
             self.model_base,

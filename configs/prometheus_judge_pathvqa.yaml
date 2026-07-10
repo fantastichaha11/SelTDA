@@ -10,7 +10,7 @@ prompt:
 
 model:
   backend: prometheus_vision
-  model_path: ${oc.env:PROMETHEUS_VISION_MODEL,prometheus-eval/prometheus-vision-13b-v1.0}
+  model_path: ${oc.env:PROMETHEUS_VISION_MODEL,prometheus-eval/prometheus-vision-7b-v1.0}
   model_base: ${oc.env:PROMETHEUS_VISION_MODEL_BASE,null}
   conv_mode: vicuna_v1
   device: cuda
@@ -24,7 +24,7 @@ eval:
   mock_score: null
 
 train:
-  output_dir: outputs/prometheus_judge/pathvqa_adapted
+  output_dir: outputs/prometheus_judge/pathvqa_llava_lora_adapted
   train_pairs_jsonl: outputs/prometheus_judge/pathvqa_train_pairs.jsonl
   prometheus_sft_json: outputs/prometheus_judge/pathvqa_prometheus_sft.json
   use_pseudo_qa: false
@@ -32,26 +32,54 @@ train:
   backend: dry_run
   external_command:
     executable: deepspeed
-    script: llava/train/train_mem.py
+    script: external/LLaVA/llava/train/train.py
     extra_args:
       - --deepspeed
-      - ./scripts/zero2.json
+      - external/LLaVA/scripts/zero2.json
       - --model_name_or_path
       - ${model.model_path}
       - --version
-      - plain
+      - vicuna_v1
+      - --model_max_length
+      - "2048"
       - --data_path
       - ${train.prometheus_sft_json}
+      - --image_folder
+      - ${data.image_root}
+      - --image_aspect_ratio
+      - pad
+      - --lazy_preprocess
+      - "True"
+      - --vision_tower
+      - openai/clip-vit-large-patch14-336
+      - --mm_projector_type
+      - mlp2x_gelu
+      - --mm_vision_select_layer
+      - "-2"
+      - --mm_use_im_start_end
+      - "False"
+      - --mm_use_im_patch_token
+      - "False"
       - --bf16
       - "True"
+      - --gradient_checkpointing
+      - "True"
+      - --lora_enable
+      - "True"
+      - --lora_r
+      - "16"
+      - --lora_alpha
+      - "32"
+      - --lora_dropout
+      - "0.05"
       - --output_dir
       - ${train.output_dir}
       - --num_train_epochs
       - "1"
       - --per_device_train_batch_size
-      - "4"
+      - "16"
       - --gradient_accumulation_steps
-      - "4"
+      - "1"
       - --learning_rate
       - "1e-5"
       - --weight_decay

@@ -6,7 +6,12 @@ from judge.prometheus import StaticPrometheusScorer
 import scripts.eval_prometheus_judge as eval_prometheus_judge
 import scripts.train_prometheus_judge as train_prometheus_judge
 from scripts.eval_prometheus_judge import build_scorer, run_eval
-from scripts.train_prometheus_judge import build_external_command, build_training_artifacts, run_train
+from scripts.train_prometheus_judge import (
+    build_external_command,
+    build_training_artifacts,
+    run_train,
+    validate_external_llava_command,
+)
 
 
 def test_prometheus_judge_config_loads():
@@ -19,9 +24,21 @@ def test_prometheus_judge_config_loads():
     assert cfg.eval.split == "val"
     assert cfg.train.use_pseudo_qa is False
     assert resolved["model"]["model_base"] is None
-    assert "prometheus-eval/prometheus-vision-13b-v1.0" in resolved["train"]["external_command"]["extra_args"]
+    assert "prometheus-eval/prometheus-vision-7b-v1.0" in resolved["train"]["external_command"]["extra_args"]
+    assert "vicuna_v1" in resolved["train"]["external_command"]["extra_args"]
     assert "outputs/prometheus_judge/pathvqa_prometheus_sft.json" in resolved["train"]["external_command"]["extra_args"]
-    assert "outputs/prometheus_judge/pathvqa_adapted" in resolved["train"]["external_command"]["extra_args"]
+    assert "outputs/prometheus_judge/pathvqa_llava_lora_adapted" in resolved["train"]["external_command"]["extra_args"]
+
+
+def test_external_llava_command_rejects_plain_template_for_judge_sft():
+    command = ["deepspeed", "llava/train/train.py", "--version", "plain"]
+
+    try:
+        validate_external_llava_command(command)
+    except ValueError as exc:
+        assert "drops the rubric and question prompt" in str(exc)
+    else:
+        raise AssertionError("plain LLaVA template should be rejected for judge SFT")
 
 
 def test_grpo_teacher_config_uses_pathvqa_train_images_only():
@@ -32,8 +49,8 @@ def test_grpo_teacher_config_uses_pathvqa_train_images_only():
     assert cfg.image_pool.annotations == "datasets/pathvqa/train.json"
     assert cfg.image_pool.use_ground_truth_qa is False
     assert cfg.reward.judge_config == "configs/prometheus_judge_pathvqa.yaml"
-    assert resolved["reward"]["selected_judge_model_path"] == "prometheus-eval/prometheus-vision-13b-v1.0"
-    assert resolved["teacher"]["pretrained"] == "cache/teacher_weights/checkpoint_04.pth"
+    assert resolved["reward"]["selected_judge_model_path"] == "cache/prometheus-vision-7b-v1.0"
+    assert resolved["teacher"]["pretrained"] == "cache/pathvqa_teacher_weights/checkpoint_04.pth"
 
 
 def _write_json(path, payload):

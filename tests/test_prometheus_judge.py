@@ -5,6 +5,7 @@ from judge.prometheus import (
     PrometheusVisionScorer,
     StaticPrometheusScorer,
     _feedback_from_raw,
+    _llava_model_name_for_path,
     build_prometheus_prompt,
     parse_prometheus_score,
     score_to_reward,
@@ -92,6 +93,17 @@ def test_static_prometheus_scorer_returns_deterministic_result():
     assert result.reward == 0.75
     assert result.feedback == "ok"
     assert result.raw_text == "Feedback: ok [RESULT] 4"
+
+
+def test_llava_model_name_detects_local_prometheus_llava_config(tmp_path):
+    model_dir = tmp_path / "prometheus-vision-7b-v1.0"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text('{"model_type": "llava"}', encoding="utf-8")
+
+    assert (
+        _llava_model_name_for_path(str(model_dir), "prometheus-vision-7b-v1.0")
+        == "llava-prometheus-vision-7b-v1.0"
+    )
 
 
 def test_prometheus_vision_scorer_generate_decodes_only_continuation(monkeypatch):

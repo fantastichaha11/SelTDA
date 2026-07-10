@@ -1,5 +1,5 @@
-ann_root: /net/acadia4a/data/zkhan/pathvqa
-vqa_root: /net/acadia4a/data/zkhan/pathvqa/images
+ann_root: datasets/pathvqa
+vqa_root: datasets/pathvqa/images
 train_files: ['train']
 dataset_name: pathvqa 
 truncate_train_dataset_to: null
