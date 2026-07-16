@@ -16,6 +16,7 @@ def test_build_prometheus_prompt_uses_no_reference_template():
     prompt = build_prometheus_prompt(
         question="What abnormality is visible?",
         candidate_answer="A necrotic tumor is present.",
+        rubric="Score 1: incorrect. Score 5: correct.",
     )
 
     assert "###Task Description:" in prompt
@@ -35,7 +36,8 @@ def test_build_prometheus_prompt_uses_no_reference_template():
     assert "###Reference Answer (Score 5):" in prompt
     assert "###Score Rubrics:" in prompt
     assert NO_REFERENCE_TEXT in prompt
-    assert "Answer the visual question about this pathology image:\nWhat abnormality is visible?" in prompt
+    assert "Answer the visual question about this image:\nWhat abnormality is visible?" in prompt
+    assert "pathology" not in prompt.lower()
     assert "A necrotic tumor is present." in prompt
     assert "ground truth" not in prompt.lower()
     assert prompt.endswith("###Feedback:")
@@ -216,3 +218,97 @@ def test_prometheus_vision_scorer_generate_decodes_only_continuation(monkeypatch
     )
 
     assert raw_text == "Feedback: too generic. [RESULT] 2"
+
+
+def test_prometheus_vision_scorer_omits_max_new_tokens_when_none(monkeypatch):
+    scorer = PrometheusVisionScorer(model_path="stub", max_new_tokens=None)
+    captured_kwargs = {}
+
+    class FakeTensor:
+        def __init__(self, data):
+            self.data = data
+
+        @property
+        def shape(self):
+            return (1, len(self.data[0])) if self.data and isinstance(self.data[0], list) else (len(self.data),)
+
+        def unsqueeze(self, dim):
+            assert dim == 0
+            return FakeTensor([self.data])
+
+        def to(self, *args, **kwargs):
+            return self
+
+        def tolist(self):
+            return self.data
+
+        def __getitem__(self, key):
+            if isinstance(key, tuple):
+                _, col_key = key
+                return FakeTensor([self.data[0][col_key]])
+            return self.data[key]
+
+    class FakeImage:
+        def convert(self, mode):
+            return self
+
+    class FakeImageModule:
+        @staticmethod
+        def open(path):
+            return FakeImage()
+
+    class FakeInferenceMode:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeTorch:
+        float16 = "float16"
+
+        @staticmethod
+        def inference_mode():
+            return FakeInferenceMode()
+
+    class FakeConv:
+        roles = ("user", "assistant")
+
+        def copy(self):
+            return self
+
+        def append_message(self, role, content):
+            pass
+
+        def get_prompt(self):
+            return "PROMPT"
+
+    class FakeTokenizer:
+        def decode(self, token_ids, skip_special_tokens=True):
+            return "Feedback: ok [RESULT] 4"
+
+    class FakeModel:
+        device = "cpu"
+        config = object()
+
+        def generate(self, input_ids, images, **kwargs):
+            captured_kwargs.update(kwargs)
+            return FakeTensor([[10, 11, 90]])
+
+    monkeypatch.setattr(PrometheusVisionScorer, "_ensure_loaded", lambda self: None)
+    scorer._Image = FakeImageModule
+    scorer._process_images = lambda images, processor, config: FakeTensor([[1, 2]])
+    scorer._image_processor = object()
+    scorer._model = FakeModel()
+    scorer._torch = FakeTorch()
+    scorer._conv_templates = {"vicuna_v1": FakeConv()}
+    scorer._DEFAULT_IMAGE_TOKEN = "<image>"
+    scorer._tokenizer_image_token = (
+        lambda full_prompt, tokenizer, image_token_index, return_tensors=None: FakeTensor([10, 11])
+    )
+    scorer._tokenizer = FakeTokenizer()
+    scorer._IMAGE_TOKEN_INDEX = 0
+
+    scorer.generate(image_path="/tmp/image.jpg", prompt="Judge this answer.")
+
+    assert "max_new_tokens" not in captured_kwargs

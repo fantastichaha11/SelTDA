@@ -47,7 +47,7 @@ def build_prometheus_prompt(
     rubric: str = DEFAULT_RUBRIC,
     reference_answer: str = NO_REFERENCE_TEXT,
 ) -> str:
-    instruction = "Answer the visual question about this pathology image:\n" + question
+    instruction = "Answer the visual question about this image:\n" + question
     return (
         "###Task Description:\n"
         "An instruction, a response to evaluate, an image, a score rubric, and a neutral no-reference field are given.\n"
@@ -139,7 +139,8 @@ class PrometheusVisionScorer:
         model_base: str | None = None,
         conv_mode: str = "vicuna_v1",
         temperature: float = 0.0,
-        max_new_tokens: int = 512,
+        max_new_tokens: int | None = 512,
+        rubric: str = DEFAULT_RUBRIC,
     ):
         self.model_path = model_path
         self.device = device
@@ -147,6 +148,7 @@ class PrometheusVisionScorer:
         self.conv_mode = conv_mode
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
+        self.rubric = rubric
         self._loaded = False
         self._tokenizer: Any = None
         self._model: Any = None
@@ -228,15 +230,17 @@ class PrometheusVisionScorer:
             return_tensors="pt",
         ).unsqueeze(0).to(self._model.device)
 
+        generate_kwargs = {
+            "images": image_tensor,
+            "do_sample": self.temperature > 0,
+            "temperature": self.temperature,
+            "use_cache": True,
+        }
+        if self.max_new_tokens is not None:
+            generate_kwargs["max_new_tokens"] = self.max_new_tokens
+
         with self._torch.inference_mode():
-            output_ids = self._model.generate(
-                input_ids,
-                images=image_tensor,
-                do_sample=self.temperature > 0,
-                temperature=self.temperature,
-                max_new_tokens=self.max_new_tokens,
-                use_cache=True,
-            )
+            output_ids = self._model.generate(input_ids, **generate_kwargs)
 
         generated_ids = output_ids
         input_token_count = input_ids.shape[1]
@@ -264,6 +268,7 @@ class PrometheusVisionScorer:
         prompt = build_prometheus_prompt(
             question=question,
             candidate_answer=candidate_answer,
+            rubric=self.rubric,
         )
         raw_text = self.generate(image_path=image_path, prompt=prompt)
         score = parse_prometheus_score(raw_text)

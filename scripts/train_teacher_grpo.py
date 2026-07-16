@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -15,7 +16,7 @@ if str(REPO_ROOT) not in sys.path:
 from omegaconf import OmegaConf
 
 from judge.data import ImagePoolItem, load_image_pool
-from judge.prometheus import PrometheusVisionScorer, StaticPrometheusScorer
+from judge.prometheus import DEFAULT_RUBRIC, PrometheusVisionScorer, StaticPrometheusScorer
 from judge.reward import (
     apply_reward_penalties,
     batch_diagnostics,
@@ -71,6 +72,35 @@ def advantage_weighted_policy_loss(
     ) / len(losses)
 
 
+def _clean_generated_question(question: str) -> str:
+    question = question.strip()
+    question = re.sub(r"^\s*:+\s*", "", question)
+    question = re.sub(r"^\s*question\s*:\s*", "", question, flags=re.IGNORECASE)
+    return question.strip()
+
+
+def _select_generated_answer(answer: str) -> str:
+    parts = [part.strip().strip(".") for part in answer.split(",")]
+    parts = [part for part in parts if part]
+    if not parts:
+        return "unknown"
+
+    counts: dict[str, int] = {}
+    first_text: dict[str, str] = {}
+    first_index: dict[str, int] = {}
+    for index, part in enumerate(parts):
+        key = part.lower()
+        counts[key] = counts.get(key, 0) + 1
+        first_text.setdefault(key, part)
+        first_index.setdefault(key, index)
+
+    best_key = min(
+        counts,
+        key=lambda key: (-counts[key], first_index[key]),
+    )
+    return first_text[best_key]
+
+
 def _parse_generated_qa(text: str) -> tuple[str, str]:
     from generate_questions import (
         AmbiguousBooleanAnswerError,
@@ -85,20 +115,21 @@ def _parse_generated_qa(text: str) -> tuple[str, str]:
             parse_rationale=False,
         )
     except (AmbiguousBooleanAnswerError, ParseModelOutputError):
-        lower = text.lower()
-        marker = "answer:"
-        if marker in lower:
-            index = lower.index(marker)
-            before = text[:index]
-            after = text[index + len(marker) :]
+        answer_marker = re.search(r"\banswer\s*:", text, flags=re.IGNORECASE)
+        if answer_marker is not None:
+            before = text[: answer_marker.start()]
+            after = text[answer_marker.end() :]
             question = before.strip()
             if question.lower().startswith("question:"):
                 question = question[len("question:") :].strip()
             answer = after.strip().strip(".")
-            return question or text.strip(), answer or "unknown"
-        return text.strip(), "unknown"
+            return (
+                _clean_generated_question(question or text.strip()),
+                _select_generated_answer(answer),
+            )
+        return _clean_generated_question(text.strip()), "unknown"
     answer = ",".join(record.answer).strip()
-    return record.question, answer or "unknown"
+    return _clean_generated_question(record.question), _select_generated_answer(answer)
 
 
 class BlipTeacherPolicy:
@@ -235,12 +266,20 @@ def build_judge_from_config(config):
     judge_config_path = OmegaConf.select(config, "reward.judge_config", default=None)
     judge_config = OmegaConf.load(str(judge_config_path)) if judge_config_path else None
     model_base = (
-        OmegaConf.select(judge_config, "model.model_path", default=None)
+        OmegaConf.select(judge_config, "model.model_base", default=None)
         if judge_config is not None
         else None
     )
     if model_base is not None and str(model_base).lower() in {"none", "null"}:
         model_base = None
+    max_new_tokens = (
+        OmegaConf.select(judge_config, "model.max_new_tokens", default=None)
+        if judge_config is not None
+        else None
+    )
+    if max_new_tokens is not None and str(max_new_tokens).lower() in {"none", "null"}:
+        max_new_tokens = None
+
     return PrometheusVisionScorer(
         model_path=str(judge_model_path),
         model_base=(
@@ -254,10 +293,10 @@ def build_judge_from_config(config):
             else "vicuna_v1"
         ),
         device=str(OmegaConf.select(config, "teacher.device", default="cuda")),
-        max_new_tokens=int(
-            OmegaConf.select(judge_config, "model.max_new_tokens", default=512)
-            if judge_config is not None
-            else 512
+        max_new_tokens=None if max_new_tokens is None else int(max_new_tokens),
+        rubric=str(
+            OmegaConf.select(judge_config, "prompt.rubric", default=None)
+            or DEFAULT_RUBRIC
         ),
     )
 
@@ -404,7 +443,8 @@ def run_grpo(config, teacher: TeacherPolicy | None = None, judge=None) -> dict[s
                 )
 
     final_checkpoint = Path(str(config.teacher.output_dir)) / "checkpoint_final.pth"
-    if hasattr(teacher, "save_checkpoint"):
+    final_already_saved = save_every > 0 and steps > 0 and steps % save_every == 0
+    if hasattr(teacher, "save_checkpoint") and not final_already_saved:
         teacher.save_checkpoint(final_checkpoint, config, steps)
         print(f"[grpo] saved_checkpoint={final_checkpoint}", file=sys.stderr, flush=True)
 

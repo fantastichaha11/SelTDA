@@ -1,0 +1,23 @@
+model:
+  backend: prometheus_vision
+  model_path: ${oc.env:PROMETHEUS_VISION_MODEL,prometheus-eval/prometheus-vision-7b-v1.0}
+  model_base: ${oc.env:PROMETHEUS_VISION_MODEL_BASE,null}
+  conv_mode: vicuna_v1
+  device: cuda
+  temperature: 0.0
+  max_new_tokens: null
+
+prompt:
+  no_reference: true
+  rubric_name: vizwiz_vqa_correctness
+  rubric: |-
+    You are evaluating a candidate answer for a visual question about an image taken by a blind or low-vision user.
+    Judge the answer using only the image, the question, and the candidate answer.
+    Focus on whether the answer is visually grounded, directly answers the question, is specific enough to be useful, and avoids hallucinated details.
+    Penalize irrelevant answers, unsupported guesses, vague generic answers, wrong yes/no responses, and unsafe or misleading claims.
+
+    Score 1: The answer is incorrect, unrelated to the question, unsupported by the image, or misleading.
+    Score 2: The answer has slight relevance but is mostly wrong, vague, or weakly grounded.
+    Score 3: The answer is partially correct and somewhat grounded, but incomplete, imprecise, or missing important detail.
+    Score 4: The answer is mostly correct, visually grounded, and useful, with only minor omissions or imprecision.
+    Score 5: The answer is fully correct, clearly grounded in the image, directly answers the question, and is maximally useful.

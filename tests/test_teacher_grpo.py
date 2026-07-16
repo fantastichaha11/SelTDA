@@ -194,6 +194,32 @@ def test_run_grpo_logs_rows_and_metrics_to_split_directories(tmp_path):
     assert "mean_reward" in metric_rows[0]
 
 
+def test_run_grpo_does_not_save_duplicate_final_checkpoint_when_interval_hits_end(
+    tmp_path,
+):
+    cfg = _make_grpo_config(tmp_path, dry_run=True)
+    cfg.teacher.save_every = 1
+    save_paths = []
+
+    class SavingTeacher(RecordingTeacherPolicy):
+        def save_checkpoint(self, path, config, steps):
+            del config
+            save_paths.append((Path(path).name, steps))
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            Path(path).write_text(f"step={steps}", encoding="utf-8")
+
+    result = run_grpo(
+        cfg,
+        teacher=SavingTeacher(),
+        judge=StaticPrometheusScorer(score=5, feedback="mock"),
+    )
+
+    assert result == {"steps": 1}
+    assert save_paths == [("checkpoint_step_000001.pth", 1)]
+    assert (Path(str(cfg.teacher.output_dir)) / "checkpoint_step_000001.pth").exists()
+    assert not (Path(str(cfg.teacher.output_dir)) / "checkpoint_final.pth").exists()
+
+
 def test_train_teacher_grpo_cli_runs_from_repo_root_and_prints_json(tmp_path):
     train_path = tmp_path / "train.json"
     _write_json(
@@ -260,7 +286,34 @@ def test_parse_generated_qa_uses_repo_parser_for_spaced_answer_marker():
         " what might the person next to the suitcase be doing?. answer : waiting, waiting"
     )
     assert question == "what might the person next to the suitcase be doing?"
-    assert answer == "waiting,waiting"
+    assert answer == "waiting"
+
+
+def test_parse_generated_qa_collapses_vizwiz_repeated_answer_list():
+    question, answer = _parse_generated_qa(
+        "question : what is this? answer : basil leaves, basil leaves, basil, basil leaves, basil"
+    )
+
+    assert question == "what is this?"
+    assert answer == "basil leaves"
+
+
+def test_parse_generated_qa_chooses_majority_answer_from_mixed_vizwiz_list():
+    question, answer = _parse_generated_qa(
+        "question : what color is this? answer : yellow, light, unanswerable, yellow, white, white, white"
+    )
+
+    assert question == "what color is this?"
+    assert answer == "white"
+
+
+def test_parse_generated_qa_splits_spaced_answer_marker_without_question_mark():
+    question, answer = _parse_generated_qa(
+        "please read to me whats in this jar, thank you answer : basil leaves, basil leaves, basil"
+    )
+
+    assert question == "please read to me whats in this jar, thank you"
+    assert answer == "basil leaves"
 
 
 @pytest.mark.parametrize(
@@ -269,12 +322,12 @@ def test_parse_generated_qa_uses_repo_parser_for_spaced_answer_marker():
         (
             ": what does this animal live in?. answer : trees, forest.",
             "what does this animal live in?",
-            "trees,forest",
+            "trees",
         ),
         (
             " what might the person next to the suitcase be doing?. answer : waiting, waiting",
             "what might the person next to the suitcase be doing?",
-            "waiting,waiting",
+            "waiting",
         ),
     ],
 )
@@ -345,6 +398,7 @@ def test_build_judge_from_config_passes_lora_base_from_judge_config(tmp_path, mo
             [
                 "model:",
                 "  model_path: cache/prometheus-vision-7b-v1.0",
+                "  model_base: cache/prometheus-vision-7b-v1.0",
                 "  conv_mode: vicuna_v1",
                 "  max_new_tokens: 128",
             ]
@@ -378,7 +432,86 @@ def test_build_judge_from_config_passes_lora_base_from_judge_config(tmp_path, mo
         "conv_mode": "vicuna_v1",
         "device": "cuda",
         "max_new_tokens": 128,
+        "rubric": teacher_grpo.DEFAULT_RUBRIC,
     }
+
+
+def test_build_judge_from_config_passes_custom_rubric_from_judge_config(tmp_path, monkeypatch):
+    judge_cfg_path = tmp_path / "judge.yaml"
+    judge_cfg_path.write_text(
+        "\n".join(
+            [
+                "model:",
+                "  model_path: cache/prometheus-vision-7b-v1.0",
+                "  conv_mode: vicuna_v1",
+                "  max_new_tokens: 128",
+                "prompt:",
+                "  rubric: Check whether the answer is grounded in a VizWiz image.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cfg = OmegaConf.create(
+        {
+            "teacher": {"device": "cuda"},
+            "reward": {
+                "judge_config": str(judge_cfg_path),
+                "selected_judge_model_path": "cache/prometheus-vision-7b-v1.0",
+            },
+        }
+    )
+    captured = {}
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        teacher_grpo, "PrometheusVisionScorer", FakePrometheusVisionScorer
+    )
+
+    build_judge_from_config(cfg)
+
+    assert captured["rubric"] == "Check whether the answer is grounded in a VizWiz image."
+
+
+def test_build_judge_from_config_uses_no_base_for_full_selected_checkpoint(
+    tmp_path, monkeypatch
+):
+    judge_cfg_path = tmp_path / "judge.yaml"
+    judge_cfg_path.write_text(
+        "\n".join(
+            [
+                "model:",
+                "  model_path: prometheus-eval/prometheus-vision-7b-v1.0",
+                "  conv_mode: vicuna_v1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cfg = OmegaConf.create(
+        {
+            "teacher": {"device": "cuda"},
+            "reward": {
+                "judge_config": str(judge_cfg_path),
+                "selected_judge_model_path": "cache/prometheus-vision-7b-v1.0",
+            },
+        }
+    )
+    captured = {}
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        teacher_grpo, "PrometheusVisionScorer", FakePrometheusVisionScorer
+    )
+
+    build_judge_from_config(cfg)
+
+    assert captured["model_path"] == "cache/prometheus-vision-7b-v1.0"
+    assert captured["model_base"] is None
 
 
 def test_blip_teacher_generate_uses_eval_mode_for_sampling():

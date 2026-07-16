@@ -21,6 +21,9 @@ def build_scorer(config):
         return StaticPrometheusScorer(score=int(mock_score), feedback="mock")
 
     model_cfg = config.model
+    max_new_tokens = OmegaConf.select(config, "model.max_new_tokens", default=None)
+    if max_new_tokens is not None and str(max_new_tokens).lower() in {"none", "null"}:
+        max_new_tokens = None
     return PrometheusVisionScorer(
         model_path=str(model_cfg.model_path),
         model_base=None
@@ -29,7 +32,7 @@ def build_scorer(config):
         conv_mode=str(model_cfg.conv_mode),
         device=str(model_cfg.device),
         temperature=float(model_cfg.temperature),
-        max_new_tokens=int(model_cfg.max_new_tokens),
+        max_new_tokens=None if max_new_tokens is None else int(max_new_tokens),
     )
 
 
