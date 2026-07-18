@@ -111,7 +111,7 @@ def test_download_notebook_converts_both_splits_without_test_answer_leakage(tmp_
     assert test_metadata["2000000"]["answer_type"] == "other"
 
 
-def test_eval_notebook_accepts_checkpoint_list_and_defaults_to_test():
+def test_eval_notebook_accepts_checkpoint_list_and_both_eval_splits():
     notebook = _assert_valid_notebook(EVAL_NOTEBOOK)
     source = _notebook_source(notebook)
 
@@ -130,19 +130,43 @@ def test_eval_notebook_accepts_checkpoint_list_and_defaults_to_test():
     assert "CHECKPOINT_PATHS = [" in source
     assert "CHECKPOINT_SEARCH_ROOTS" in source
     assert "checkpoint_*.pth" in source
-    assert "EVAL_SPLIT = 'test'" in source
+    assert "EVAL_SPLITS = ['val', 'test']" in source
     assert "'dataset_name': 'generic_vqa'" in source
     assert "'train_files': ['val']" in source
-    assert "'val_file': EVAL_SPLIT" in source
+    assert "'val_file': eval_split" in source
     assert "vizwiz_val_metadata.json" in source
     assert "vizwiz_test_metadata.json" in source
     assert "(path / 'images/train').is_dir()" not in source
+
+
+def test_eval_notebook_writes_one_config_per_split(tmp_path):
+    notebook = _assert_valid_notebook(EVAL_NOTEBOOK)
+    namespace = {
+        "vizwiz_root": tmp_path / "vizwiz",
+        "EVAL_SPLITS": ["val", "test"],
+        "REPO_DIR": tmp_path / "repo",
+        "checkpoint_paths": {"checkpoint": tmp_path / "checkpoint.pth"},
+        "BATCH_SIZE_TEST": 4,
+        "K_TEST": 128,
+        "INFERENCE": "rank",
+    }
+    exec(
+        compile(_tagged_source(notebook, "eval_config"), EVAL_NOTEBOOK.name, "exec"),
+        namespace,
+    )
+
+    config_paths = namespace["config_paths"]
+    assert set(config_paths) == {"val", "test"}
+    assert "val_file: val" in config_paths["val"].read_text()
+    assert "val_file: test" in config_paths["test"].read_text()
+    assert namespace["config_args"]["val"].startswith("configs/")
 
 
 def test_eval_notebook_scores_every_checkpoint_and_writes_summaries():
     notebook = _assert_valid_notebook(EVAL_NOTEBOOK)
     source = _notebook_source(notebook)
 
+    assert "for eval_split in EVAL_SPLITS:" in source
     assert "for label, checkpoint in checkpoint_paths.items():" in source
     assert "train_vqa.py" in source
     assert "--evaluate" in source
@@ -153,3 +177,5 @@ def test_eval_notebook_scores_every_checkpoint_and_writes_summaries():
     assert "--metadata-file" in source
     assert "vizwiz_eval_summary.json" in source
     assert "vizwiz_eval_summary.csv" in source
+    assert "vizwiz_{eval_split}_summary.json" in source
+    assert "vizwiz_{eval_split}_summary.csv" in source
