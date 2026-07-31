@@ -7,6 +7,18 @@ data:
 prompt:
   no_reference: true
   rubric_name: pathology_vqa_correctness
+  criteria_count: 4
+  rubric: |-
+    You are evaluating a candidate answer for a pathology image question.
+    Judge the answer using only the pathology image, the question, and the candidate answer.
+    Focus on visual grounding in the image, medical correctness, specificity, and practical usefulness for the question.
+    Penalize hallucinated details, unrelated content, vague answers, and medically misleading claims.
+
+    Score 1: The answer is completely incorrect, unrelated to the question, not grounded in the image, or medically misleading.
+    Score 2: The answer has slight relevance but is mostly incorrect, weakly grounded, too generic, hallucinated, or substantially misleading.
+    Score 3: The answer is partially correct and somewhat grounded in the image, but it is incomplete, imprecise, or misses important medical detail.
+    Score 4: The answer is mostly correct, well grounded in the image, medically sound, and useful, with only minor omissions or imprecision.
+    Score 5: The answer is fully correct, clearly grounded in the image, medically accurate, specific, and maximally useful for the question.
 
 model:
   backend: prometheus_vision

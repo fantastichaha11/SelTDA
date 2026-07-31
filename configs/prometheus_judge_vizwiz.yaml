@@ -10,6 +10,7 @@ model:
 prompt:
   no_reference: true
   rubric_name: vizwiz_vqa_correctness
+  criteria_count: 4
   rubric: |-
     You are evaluating a candidate answer for a visual question about an image taken by a blind or low-vision user.
     Judge the answer using only the image, the question, and the candidate answer.

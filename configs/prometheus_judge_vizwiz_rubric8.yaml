@@ -1,0 +1,25 @@
+model:
+  backend: prometheus_vision
+  model_path: ${oc.env:PROMETHEUS_VISION_MODEL,prometheus-eval/prometheus-vision-7b-v1.0}
+  model_base: ${oc.env:PROMETHEUS_VISION_MODEL_BASE,null}
+  conv_mode: vicuna_v1
+  device: cuda
+  temperature: 0.0
+  max_new_tokens: null
+
+prompt:
+  no_reference: true
+  rubric_name: vizwiz_pseudoqa_utility_8
+  criteria_count: 8
+  rubric: |-
+    You are evaluating a synthetic question-answer pair intended for training a visual question answering system for blind or low-vision users. Use only the visible image, the synthetic question, and the synthetic answer. There is no reference answer.
+
+    Evaluate the pair on eight criteria: (1) every asserted object, attribute, text, count, or spatial relation is visually grounded; (2) the answer directly addresses the question; (3) the answer is appropriately specific and useful; (4) the answer avoids hallucinated, unsafe, or misleading claims; (5) the question is compatible with content that is present or reasonably requested from the image; (6) the pair recognizes visibility limits caused by blur, occlusion, framing, lighting, or missing evidence; (7) it chooses the answerable or unanswerable mode correctly; and (8) it provides a meaningful, non-trivial training signal.
+
+    An unanswerable response is correct only when the requested information genuinely cannot be recovered from the image. Do not reward an unanswerable response when the information is clearly visible. Yes/no answers are acceptable when visually grounded. Judge semantic quality rather than mechanically preferring a fixed answer length.
+
+    Score 1: The pair is invalid, unrelated, contradicted by the image, confidently hallucinates information, selects a clearly wrong answerability mode, or could seriously mislead the user.
+    Score 2: The pair has slight relevance but is weakly grounded, vague, insufficiently supported, or poorly calibrated to image visibility.
+    Score 3: The answer is plausible and mostly relevant, but the pair is incomplete, imprecise, generic, incorrectly confident, or only moderately useful for training.
+    Score 4: The answer is clearly grounded, direct, appropriately specific, safe, and useful, or it correctly identifies that the requested information is unanswerable, with at most minor omissions.
+    Score 5: The pair satisfies all requirements of Score 4 and provides a highly clear, unambiguous, visibility-calibrated, and informative training example without unsupported details.

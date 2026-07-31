@@ -1,0 +1,25 @@
+model:
+  backend: prometheus_vision
+  model_path: ${oc.env:PROMETHEUS_VISION_MODEL,prometheus-eval/prometheus-vision-7b-v1.0}
+  model_base: ${oc.env:PROMETHEUS_VISION_MODEL_BASE,null}
+  conv_mode: vicuna_v1
+  device: cuda
+  temperature: 0.0
+  max_new_tokens: 512
+
+prompt:
+  no_reference: true
+  rubric_name: pathvqa_pseudoqa_utility_8
+  criteria_count: 8
+  rubric: |-
+    You are evaluating a synthetic question-answer pair intended for training a visual question answering model on pathology images. Use only the visible image, the synthetic question, and the synthetic answer. There is no reference answer.
+
+    Evaluate the pair on eight criteria: (1) the answer is grounded in visible image evidence; (2) the answer is medically correct; (3) the answer is appropriately specific; (4) the answer is practically useful for the question; (5) the question itself is answerable from the visible image; (6) the pair targets a discriminative pathological or morphological feature when such a feature is visible; (7) the diagnostic scope and medical terminology do not exceed what the image supports; and (8) the pair provides a meaningful, non-trivial training signal rather than a vague or generic association.
+
+    A yes/no answer is acceptable when the question is meaningful and the image provides sufficient evidence. Do not reward specialized medical terminology merely because it sounds precise. Judge semantic quality rather than mechanically preferring a fixed answer length.
+
+    Score 1: The question is invalid or not answerable from the image, or the answer is incorrect, hallucinated, unrelated, or medically misleading.
+    Score 2: The pair is weakly related to the image, but its answer is unreliable, ambiguous, overly generic, or supported by insufficient visual evidence.
+    Score 3: The question is probably answerable and the answer is plausible, but the pair is imprecise, trivial, incomplete, diagnostically over-broad, or only moderately useful for training.
+    Score 4: The question is clearly answerable from the image and the answer is visually grounded, medically sound, appropriately specific, concise, and useful, with at most minor omissions.
+    Score 5: The pair satisfies all requirements of Score 4 and targets a clear discriminative pathological or morphological feature, providing an unambiguous, evidence-calibrated, and high-value training example.

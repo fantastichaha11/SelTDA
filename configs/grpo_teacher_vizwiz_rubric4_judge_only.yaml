@@ -1,0 +1,41 @@
+image_pool:
+  name: vizwiz_train
+  annotations: datasets/vizwiz/train.json
+  image_root: datasets/vizwiz/images
+  use_ground_truth_qa: false
+
+teacher:
+  config: cache/vizwiz_teacher_weights/vizwiz_teacher_config.yaml
+  pretrained: cache/vizwiz_teacher_weights/vizwiz_teacher_checkpoint_04.pth
+  output_dir: outputs/experiments/vizwiz/pt4_j/teacher
+  device: cuda
+  batch_size: 2
+  candidates_per_image: 8
+  max_steps: 200
+  epochs: 3
+  save_every: 200
+  lr: 1e-6
+  dry_run: false
+
+generation:
+  max_length: 40
+  min_length: 5
+  top_p: 0.9
+
+reward:
+  judge_config: configs/prometheus_judge_vizwiz.yaml
+  selected_judge_model_path: cache/prometheus-vision-7b-v1.0
+  duplicate_question_penalty: 0.0
+  yes_no_answer_penalty: 0.0
+  length_penalty: 0.0
+  generic_answer_penalty: 0.0
+  max_question_words: 30
+  max_answer_words: 12
+
+logging:
+  candidates_jsonl: outputs/experiments/vizwiz/pt4_j/teacher/candidates.jsonl
+  metrics_jsonl: outputs/experiments/vizwiz/pt4_j/teacher/metrics.jsonl
+  judge_snapshot_json: outputs/experiments/vizwiz/pt4_j/teacher/judge_snapshot.json
+  log_every: 10
+
+seed: 42
