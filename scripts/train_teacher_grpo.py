@@ -16,6 +16,7 @@ if str(REPO_ROOT) not in sys.path:
 from omegaconf import OmegaConf
 
 from judge.data import ImagePoolItem, load_image_pool
+from judge.factory import resolve_prometheus_config, write_judge_snapshot
 from judge.prometheus import DEFAULT_RUBRIC, PrometheusVisionScorer, StaticPrometheusScorer
 from judge.reward import (
     apply_reward_penalties,
@@ -264,40 +265,25 @@ def build_judge_from_config(config):
     if judge_model_path is None:
         return StaticPrometheusScorer(score=3, feedback="mock")
     judge_config_path = OmegaConf.select(config, "reward.judge_config", default=None)
-    judge_config = OmegaConf.load(str(judge_config_path)) if judge_config_path else None
-    model_base = (
-        OmegaConf.select(judge_config, "model.model_base", default=None)
-        if judge_config is not None
-        else None
+    if judge_config_path is None:
+        raise ValueError("reward.judge_config is required when selected_judge_model_path is set")
+    resolved = resolve_prometheus_config(
+        judge_config_path,
+        selected_model_path=str(judge_model_path),
+        device=str(OmegaConf.select(config, "teacher.device", default="cuda")),
     )
-    if model_base is not None and str(model_base).lower() in {"none", "null"}:
-        model_base = None
-    max_new_tokens = (
-        OmegaConf.select(judge_config, "model.max_new_tokens", default=None)
-        if judge_config is not None
-        else None
-    )
-    if max_new_tokens is not None and str(max_new_tokens).lower() in {"none", "null"}:
-        max_new_tokens = None
+    snapshot_path = OmegaConf.select(config, "logging.judge_snapshot_json", default=None)
+    if snapshot_path:
+        write_judge_snapshot(snapshot_path, resolved)
 
     return PrometheusVisionScorer(
-        model_path=str(judge_model_path),
-        model_base=(
-            None
-            if str(judge_model_path) == str(model_base)
-            else str(model_base) if model_base is not None else None
-        ),
-        conv_mode=str(
-            OmegaConf.select(judge_config, "model.conv_mode", default="vicuna_v1")
-            if judge_config is not None
-            else "vicuna_v1"
-        ),
-        device=str(OmegaConf.select(config, "teacher.device", default="cuda")),
-        max_new_tokens=None if max_new_tokens is None else int(max_new_tokens),
-        rubric=str(
-            OmegaConf.select(judge_config, "prompt.rubric", default=None)
-            or DEFAULT_RUBRIC
-        ),
+        model_path=resolved.model_path,
+        model_base=resolved.model_base,
+        conv_mode=resolved.conv_mode,
+        device=resolved.device,
+        temperature=resolved.temperature,
+        max_new_tokens=resolved.max_new_tokens,
+        rubric=resolved.rubric,
     )
 
 

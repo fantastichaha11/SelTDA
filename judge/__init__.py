@@ -28,6 +28,12 @@ from judge.prometheus import (
     parse_prometheus_score,
     score_to_reward,
 )
+from judge.factory import (
+    ResolvedPrometheusConfig,
+    build_prometheus_scorer,
+    resolve_prometheus_config,
+    write_judge_snapshot,
+)
 from judge.reward import (
     apply_reward_penalties,
     batch_diagnostics,
@@ -51,6 +57,7 @@ __all__ = [
     "PrometheusResult",
     "PrometheusScorer",
     "PrometheusVisionScorer",
+    "ResolvedPrometheusConfig",
     "StaticPrometheusScorer",
     "YES_NO",
     "_feedback_from_raw",
@@ -59,6 +66,7 @@ __all__ = [
     "batch_diagnostics",
     "build_answer_pools",
     "build_judge_pairs",
+    "build_prometheus_scorer",
     "build_prometheus_prompt",
     "compute_pairwise_metrics",
     "duplicate_question_penalties",
@@ -70,6 +78,8 @@ __all__ = [
     "load_records",
     "parse_prometheus_score",
     "question_prefix",
+    "resolve_prometheus_config",
     "score_distribution",
     "score_to_reward",
+    "write_judge_snapshot",
 ]

@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 from tqdm import tqdm
 
 from judge.data import build_answer_pools, build_judge_pairs, infer_answer_type, load_records, question_prefix
+from judge.factory import resolve_prometheus_config
 from judge.prometheus import PrometheusVisionScorer, StaticPrometheusScorer
 from judge.reward import compute_pairwise_metrics, score_distribution
 
@@ -20,19 +21,15 @@ def build_scorer(config):
     if mock_score is not None:
         return StaticPrometheusScorer(score=int(mock_score), feedback="mock")
 
-    model_cfg = config.model
-    max_new_tokens = OmegaConf.select(config, "model.max_new_tokens", default=None)
-    if max_new_tokens is not None and str(max_new_tokens).lower() in {"none", "null"}:
-        max_new_tokens = None
+    resolved = resolve_prometheus_config(config)
     return PrometheusVisionScorer(
-        model_path=str(model_cfg.model_path),
-        model_base=None
-        if str(model_cfg.model_base).lower() in {"none", "null"}
-        else str(model_cfg.model_base),
-        conv_mode=str(model_cfg.conv_mode),
-        device=str(model_cfg.device),
-        temperature=float(model_cfg.temperature),
-        max_new_tokens=None if max_new_tokens is None else int(max_new_tokens),
+        model_path=resolved.model_path,
+        model_base=resolved.model_base,
+        conv_mode=resolved.conv_mode,
+        device=resolved.device,
+        temperature=resolved.temperature,
+        max_new_tokens=resolved.max_new_tokens,
+        rubric=resolved.rubric,
     )
 
 

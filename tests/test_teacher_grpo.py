@@ -431,6 +431,7 @@ def test_build_judge_from_config_passes_lora_base_from_judge_config(tmp_path, mo
         "model_base": "cache/prometheus-vision-7b-v1.0",
         "conv_mode": "vicuna_v1",
         "device": "cuda",
+        "temperature": 0.0,
         "max_new_tokens": 128,
         "rubric": teacher_grpo.DEFAULT_RUBRIC,
     }
@@ -473,6 +474,56 @@ def test_build_judge_from_config_passes_custom_rubric_from_judge_config(tmp_path
     build_judge_from_config(cfg)
 
     assert captured["rubric"] == "Check whether the answer is grounded in a VizWiz image."
+
+
+def test_build_judge_from_config_writes_effective_snapshot(tmp_path, monkeypatch):
+    judge_cfg_path = tmp_path / "judge.yaml"
+    snapshot_path = tmp_path / "snapshots" / "judge.json"
+    judge_cfg_path.write_text(
+        "\n".join(
+            [
+                "model:",
+                "  model_path: cache/prometheus-vision-7b-v1.0",
+                "  model_base: null",
+                "  conv_mode: vicuna_v1",
+                "  device: cuda",
+                "  temperature: 0.0",
+                "  max_new_tokens: 128",
+                "prompt:",
+                "  rubric_name: custom4",
+                "  criteria_count: 4",
+                "  rubric: Snapshot rubric.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cfg = OmegaConf.create(
+        {
+            "teacher": {"device": "cuda:2"},
+            "reward": {
+                "judge_config": str(judge_cfg_path),
+                "selected_judge_model_path": "outputs/prometheus_judge/adapter",
+            },
+            "logging": {"judge_snapshot_json": str(snapshot_path)},
+        }
+    )
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(
+        teacher_grpo, "PrometheusVisionScorer", FakePrometheusVisionScorer
+    )
+
+    build_judge_from_config(cfg)
+
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    assert snapshot["model_path"] == "outputs/prometheus_judge/adapter"
+    assert snapshot["device"] == "cuda:2"
+    assert snapshot["rubric_name"] == "custom4"
+    assert snapshot["criteria_count"] == 4
+    assert snapshot["rubric"] == "Snapshot rubric."
 
 
 def test_build_judge_from_config_uses_no_base_for_full_selected_checkpoint(

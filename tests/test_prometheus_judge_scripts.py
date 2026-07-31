@@ -2,7 +2,7 @@ import json
 
 from omegaconf import OmegaConf
 
-from judge.prometheus import StaticPrometheusScorer
+from judge.prometheus import DEFAULT_RUBRIC, StaticPrometheusScorer
 import scripts.eval_prometheus_judge as eval_prometheus_judge
 import scripts.train_prometheus_judge as train_prometheus_judge
 from scripts.eval_prometheus_judge import build_scorer, run_eval
@@ -253,7 +253,45 @@ def test_build_scorer_preserves_non_null_model_base(monkeypatch):
         "device": "cuda:0",
         "temperature": 0.2,
         "max_new_tokens": 64,
+        "rubric": DEFAULT_RUBRIC,
     }
+
+
+def test_build_scorer_passes_yaml_rubric(monkeypatch):
+    captured = {}
+
+    class FakePrometheusVisionScorer:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        eval_prometheus_judge,
+        "PrometheusVisionScorer",
+        FakePrometheusVisionScorer,
+    )
+
+    cfg = OmegaConf.create(
+        {
+            "eval": {"mock_score": None},
+            "model": {
+                "model_path": "vision-model",
+                "model_base": None,
+                "conv_mode": "vicuna_v1",
+                "device": "cuda:0",
+                "temperature": 0.0,
+                "max_new_tokens": 64,
+            },
+            "prompt": {
+                "rubric_name": "custom",
+                "criteria_count": 8,
+                "rubric": "Use the custom rubric.",
+            },
+        }
+    )
+
+    build_scorer(cfg)
+
+    assert captured["rubric"] == "Use the custom rubric."
 
 
 def test_main_applies_overrides_and_explicit_flags(tmp_path, monkeypatch, capsys):
