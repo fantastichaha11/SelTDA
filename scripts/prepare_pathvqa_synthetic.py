@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import re
+import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-QUESTION_PREFIX = re.compile(r"^\s*question\s*:\s*", re.IGNORECASE)
+from experiments.synthetic_data import assign_missing_question_ids, clean_question
 
 
 def normalize_question(question: str) -> str:
-    return QUESTION_PREFIX.sub("", question).strip()
+    return clean_question(question)
 
 
 def main() -> None:
@@ -24,17 +27,13 @@ def main() -> None:
     with args.input.open("r") as f:
         records = json.load(f)
 
-    converted = []
-    for idx, record in enumerate(records):
-        converted.append(
-            {
-                **record,
-                "question_id": args.question_id_start + idx,
-                "question": normalize_question(record["question"]),
-                "dataset": "pathvqa",
-                "rationales": record.get("rationales"),
-            }
-        )
+    converted = assign_missing_question_ids(
+        records,
+        start=args.question_id_start,
+        dataset="pathvqa",
+    )
+    for output, source in zip(converted, records):
+        output["rationales"] = source.get("rationales")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w") as f:

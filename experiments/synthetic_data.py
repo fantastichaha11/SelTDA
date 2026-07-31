@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,9 @@ from typing import Iterable, Mapping, Sequence
 from data.utils import join_image_root_path
 from dataset_adapters.generic_vqa import normalize_answer
 from judge.data import GENERIC_MEDICAL_ANSWERS, infer_answer_type, question_prefix
+
+
+QUESTION_PREFIX_RE = re.compile(r"^\s*question\s*:\s*", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,10 @@ def canonical_answer(value: object) -> str:
     return min(counts, key=lambda item: (-counts[item], normalized.index(item)))
 
 
+def clean_question(value: object) -> str:
+    return QUESTION_PREFIX_RE.sub("", str(value or "")).strip()
+
+
 def canonical_image_key(value: object, image_root: str | Path | None = None) -> str:
     raw = str(value or "").replace("\\", "/").lstrip("/")
     if not raw or image_root is None:
@@ -49,7 +57,7 @@ def record_identity(
 ) -> tuple[str, str, str]:
     return (
         canonical_image_key(record.get("image", ""), image_root),
-        normalize_answer(record.get("question", "")),
+        normalize_answer(clean_question(record.get("question", ""))),
         canonical_answer(record.get("answer", "")),
     )
 
@@ -88,7 +96,7 @@ def eligible_records(
             {
                 **dict(raw),
                 "image": image,
-                "question": str(raw.get("question", "")).strip(),
+                "question": clean_question(raw.get("question", "")),
                 "answer": [answer],
                 "dataset": dataset,
                 "_source_index": source_index,
@@ -143,6 +151,37 @@ def build_nested_synthetic(
             return nested
 
     raise ValueError(f"available extra records cannot reach target_synthetic={target}")
+
+
+def strip_private_fields(record: Mapping) -> dict:
+    return {
+        key: value
+        for key, value in dict(record).items()
+        if not str(key).startswith("_")
+    }
+
+
+def assign_missing_question_ids(
+    records: Sequence[Mapping],
+    *,
+    start: int,
+    dataset: str,
+) -> list[dict]:
+    next_id = int(start)
+    finalized: list[dict] = []
+    for record in records:
+        row = strip_private_fields(record)
+        if row.get("question_id") is None:
+            row["question_id"] = next_id
+            next_id += 1
+        else:
+            next_id = max(next_id, int(row["question_id"]) + 1)
+        row.setdefault("dataset", dataset)
+        row["question"] = clean_question(row.get("question", ""))
+        if not isinstance(row.get("answer"), list):
+            row["answer"] = [canonical_answer(row.get("answer", ""))]
+        finalized.append(row)
+    return finalized
 
 
 def _distribution(values: Iterable[str]) -> dict[str, int]:
