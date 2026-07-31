@@ -1,0 +1,22 @@
+data:
+  raw_pools:
+    - outputs/experiments/pathvqa/filter4/raw/generated_qa.json
+  real_annotations: datasets/pathvqa/train.json
+  image_root: datasets/pathvqa/images
+  dataset: pathvqa
+  target_total: 40000
+  pool_multiplier: 2
+
+judge:
+  config: configs/prometheus_judge_pathvqa.yaml
+  selected_model_path: ${oc.env:SELECTED_PROMETHEUS_JUDGE,cache/prometheus-vision-7b-v1.0}
+  device: cuda
+
+output:
+  dir: outputs/experiments/pathvqa/filter4
+  synthetic_json: datasets/pathvqa/synthetic_filter4_40k.json
+  manifest: outputs/experiments/pathvqa/filter4/data/manifest.json
+  diagnostics: outputs/experiments/pathvqa/filter4/data/diagnostics.json
+  scores_jsonl: outputs/experiments/pathvqa/filter4/scores.jsonl
+
+seed: 42

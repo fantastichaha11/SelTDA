@@ -1,0 +1,22 @@
+data:
+  raw_pools:
+    - outputs/experiments/vizwiz/filter4/raw/generated_qa.json
+  real_annotations: datasets/vizwiz/train.json
+  image_root: datasets/vizwiz/images
+  dataset: vizwiz
+  target_total: 40000
+  pool_multiplier: 2
+
+judge:
+  config: configs/prometheus_judge_vizwiz.yaml
+  selected_model_path: cache/prometheus-vision-7b-v1.0
+  device: cuda
+
+output:
+  dir: outputs/experiments/vizwiz/filter4
+  synthetic_json: datasets/vizwiz/synthetic_filter4_40k.json
+  manifest: outputs/experiments/vizwiz/filter4/data/manifest.json
+  diagnostics: outputs/experiments/vizwiz/filter4/data/diagnostics.json
+  scores_jsonl: outputs/experiments/vizwiz/filter4/scores.jsonl
+
+seed: 42
