@@ -5,7 +5,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from dataset_adapters.generic_vqa import load_json, vqa_soft_accuracy, write_json
+from dataset_adapters.generic_vqa import write_json
+from experiments.analysis import vizwiz_per_example
 import wandb_utils
 
 
@@ -34,37 +35,18 @@ def evaluate_vizwiz(
     annotation_file: str | Path,
     metadata_file: str | Path,
 ) -> dict[str, Any]:
-    annotations = load_json(annotation_file)
-    results = load_json(result_file)
-    metadata = load_json(metadata_file)
-    if not isinstance(annotations, list) or not isinstance(results, list):
-        raise ValueError("VizWiz annotations and results must be JSON lists")
-    if not isinstance(metadata, dict):
-        raise ValueError("VizWiz metadata must be a JSON object")
-
-    predictions = _prediction_lookup(results)
+    rows = vizwiz_per_example(result_file, annotation_file, metadata_file)
     overall_scores: list[float] = []
     answerable_scores: list[float] = []
     unanswerable_scores: list[float] = []
     by_answer_type: dict[str, list[float]] = {}
 
-    for ann in annotations:
-        if not isinstance(ann, dict):
-            raise ValueError(f"VizWiz annotation row must be a JSON object: {ann}")
-        question_id = int(ann["question_id"])
-        if question_id not in predictions:
-            raise ValueError(f"Missing prediction for question_id={question_id}")
-        meta = metadata.get(str(question_id))
-        if meta is None:
-            raise ValueError(f"Missing VizWiz metadata for question_id={question_id}")
-        if not isinstance(meta, dict):
-            raise ValueError(f"VizWiz metadata row must be a JSON object: {meta}")
-
-        score = vqa_soft_accuracy(predictions[question_id], ann.get("answer", []))
+    for row in rows:
+        score = float(row["score"])
         overall_scores.append(score)
-        answer_type = str(meta.get("answer_type", "unknown"))
+        answer_type = str(row.get("answer_type", "unknown"))
         by_answer_type.setdefault(answer_type, []).append(score)
-        if int(meta.get("answerable", 1)) == 1:
+        if int(row.get("answerable", 1)) == 1:
             answerable_scores.append(score)
         else:
             unanswerable_scores.append(score)
